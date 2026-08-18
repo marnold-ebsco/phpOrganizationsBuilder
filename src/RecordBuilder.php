@@ -184,11 +184,20 @@ final class RecordBuilder {
     }
 
     /**
-     * If a group supports `isPrimary` and none of its built instances
-     * set it explicitly, default it to true on the first instance —
-     * preserving the pre-multi-instance behavior where a single instance
-     * was always primary. An instance that explicitly sets `isPrimary`
-     * (true or false) is left as the mapping specified.
+     * If a group supports `isPrimary` and no instance is explicitly
+     * `true`, pick one to default to `true` — preserving the
+     * pre-multi-instance behavior where a single instance was always
+     * primary, now generalized to multiple instances:
+     *
+     *   - If some instance already has `isPrimary: true`, nothing is
+     *     touched — an explicit "yes" anywhere is always respected.
+     *   - Otherwise, the first instance that wasn't explicitly marked
+     *     `false` is defaulted to `true` (i.e. the first one, unless
+     *     it's explicitly "no", in which case the next one that isn't,
+     *     and so on).
+     *   - If literally every instance was explicitly marked `false`,
+     *     that's left alone too — an all-explicit "no" is respected
+     *     rather than overridden.
      *
      * @param $instances Non-empty list of built sub-objects for one group.
      * @param $spec      This group's `NESTED_GROUPS` entry.
@@ -198,11 +207,16 @@ final class RecordBuilder {
             return $instances;
         }
         foreach ($instances as $sub) {
-            if (array_key_exists('isPrimary', $sub)) {
+            if (($sub['isPrimary'] ?? null) === true) {
                 return $instances;
             }
         }
-        $instances[0]['isPrimary'] = true;
+        foreach ($instances as $index => $sub) {
+            if (!array_key_exists('isPrimary', $sub)) {
+                $instances[$index]['isPrimary'] = true;
+                return $instances;
+            }
+        }
         return $instances;
     }
 

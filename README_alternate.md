@@ -32,8 +32,9 @@ each of those four groups has nowhere else to come from once there's no
 single implicit "primary" slot on Main Org record. Leave it blank on
 every row for an organization and the first row entered is still treated
 as primary automatically (same default-primary behavior the original
-template relies on); set it explicitly on any row to control this
-yourself.
+template relies on — see [Setting up the field mapping](README.md#setting-up-the-field-mapping)
+for the exact rule, including what happens if you mark a row explicitly
+`No`); set it explicitly on any row to control this yourself.
 
 **"URLs" is a new sheet.** The original blank template has no sheet for
 extra URLs at all (only a "Main Org record" URL column) — the alternate

@@ -289,12 +289,16 @@ another instance of any group, copy an existing `[N].*` block for that
 group in the mapping file, bump the index to the next number, and point
 `legacy_field` at your new columns — no PHP changes needed.
 
-For groups that support it (`addresses`, `phoneNumbers`, `emails`, `urls`),
-if no instance's `isPrimary` is explicitly mapped, the **first** instance
-is automatically marked `isPrimary: true` and the rest are left unmarked —
-matching the old single-instance behavior. Map `addresses[2].isPrimary`
-(etc.) to a column of your own if you need explicit control instead (e.g.
-to mark a *later* instance as primary).
+For groups that support it (`addresses`, `phoneNumbers`, `emails`, `urls`):
+if no instance is explicitly marked `isPrimary: true`, one is defaulted to
+`true` automatically — the **first** instance, unless it's explicitly
+marked `false` (not just unmapped), in which case the next instance that
+isn't explicitly `false` gets it instead, and so on. If literally every
+instance is explicitly marked `false`, that's left as-is — an all-explicit
+"no" is respected rather than forced. Map `addresses[2].isPrimary` (etc.)
+to a column of your own if you need explicit control (e.g. to mark a
+*later* instance as primary, or to guarantee a specific instance is
+*not* primary).
 
 Validation errors for a specific instance name it directly, e.g. `Row 5:
 'phoneNumbers[2]' group is missing required field 'phoneNumbers[2].phoneNumber'`.

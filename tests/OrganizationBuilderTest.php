@@ -282,6 +282,69 @@ final class OrganizationBuilderTest extends TestCase {
         );
     }
 
+    public function testFirstInstanceExplicitlyNotPrimaryDefaultsTheNextOneInstead(): void {
+        $mapper = new FieldMapper([
+            'name' => ['folio_field' => 'name', 'legacy_field' => 'name'],
+            'code' => ['folio_field' => 'code', 'legacy_field' => 'code'],
+            'status' => ['folio_field' => 'status', 'legacy_field' => 'status'],
+            'addresses.city' => ['folio_field' => 'addresses.city', 'legacy_field' => 'city1'],
+            'addresses.isprimary' => ['folio_field' => 'addresses.isPrimary', 'legacy_field' => 'primary1'],
+            'addresses[2].city' => ['folio_field' => 'addresses[2].city', 'legacy_field' => 'city2'],
+            'addresses[3].city' => ['folio_field' => 'addresses[3].city', 'legacy_field' => 'city3'],
+        ]);
+        $builder = new RecordBuilder($mapper, new ValueCaster(), new FolioUtils(), OrganizationSchema::class, '|');
+
+        // Nobody says "yes"; the first says "no" explicitly - the next
+        // one (which said nothing) should become primary instead of the
+        // first, and the third is left alone either way.
+        $result = $builder->build([
+            'name' => 'Skip First Co', 'code' => 'SKIPFIRST', 'status' => 'Active',
+            'city1' => 'Ipswich', 'primary1' => 'false',
+            'city2' => 'Boston',
+            'city3' => 'Denver',
+        ], 2);
+
+        $this->assertSame([], $result->getErrors());
+        $this->assertSame(
+            [
+                ['city' => 'Ipswich', 'isPrimary' => false],
+                ['city' => 'Boston', 'isPrimary' => true],
+                ['city' => 'Denver'],
+            ],
+            $result->getRecord()['addresses']
+        );
+    }
+
+    public function testEveryInstanceExplicitlyNotPrimaryIsRespectedAsIs(): void {
+        $mapper = new FieldMapper([
+            'name' => ['folio_field' => 'name', 'legacy_field' => 'name'],
+            'code' => ['folio_field' => 'code', 'legacy_field' => 'code'],
+            'status' => ['folio_field' => 'status', 'legacy_field' => 'status'],
+            'addresses.city' => ['folio_field' => 'addresses.city', 'legacy_field' => 'city1'],
+            'addresses.isprimary' => ['folio_field' => 'addresses.isPrimary', 'legacy_field' => 'primary1'],
+            'addresses[2].city' => ['folio_field' => 'addresses[2].city', 'legacy_field' => 'city2'],
+            'addresses[2].isprimary' => ['folio_field' => 'addresses[2].isPrimary', 'legacy_field' => 'primary2'],
+        ]);
+        $builder = new RecordBuilder($mapper, new ValueCaster(), new FolioUtils(), OrganizationSchema::class, '|');
+
+        // Every instance explicitly says "no" - none should be forced
+        // to primary, since that's what was explicitly asked for.
+        $result = $builder->build([
+            'name' => 'All No Co', 'code' => 'ALLNO', 'status' => 'Active',
+            'city1' => 'Ipswich', 'primary1' => 'false',
+            'city2' => 'Boston', 'primary2' => 'false',
+        ], 2);
+
+        $this->assertSame([], $result->getErrors());
+        $this->assertSame(
+            [
+                ['city' => 'Ipswich', 'isPrimary' => false],
+                ['city' => 'Boston', 'isPrimary' => false],
+            ],
+            $result->getRecord()['addresses']
+        );
+    }
+
     public function testAnyInstanceCanFailValidationIndependently(): void {
         [, $errors] = $this->build([
             'name' => 'Bad Second Phone Co',
