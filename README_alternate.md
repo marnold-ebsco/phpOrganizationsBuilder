@@ -12,7 +12,7 @@ workflow; this document only covers what's different.
 
 | | Original | Alternate |
 |---|---|---|
-| Template | [`Organization_Template (1).xlsx`](Organization_Template%20%281%29.xlsx) | [`Organization_Template_Alternate.xlsx`](Organization_Template_Alternate.xlsx) |
+| Template | [`Organization_Template.xlsx`](Organization_Template.xlsx) | [`Organization_Template_Alternate.xlsx`](Organization_Template_Alternate.xlsx) |
 | Script | [`process_template.php`](process_template.php) | [`process_template_alt.php`](process_template_alt.php) |
 | Flattener | `Organizations\TemplateFlattener` | `Organizations\AlternateTemplateFlattener` |
 

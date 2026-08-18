@@ -34,7 +34,7 @@ and a single organization object with one of each nested group is enough.
 
 If your source data is an Excel workbook rather than a delimited file —
 specifically a filled-out copy of the multi-sheet
-`Organization_Template (1).xlsx` — see
+`Organization_Template.xlsx` — see
 [Processing the Organization_Template.xlsx workbook](#processing-the-organization_templatexlsx-workbook)
 below instead of hand-flattening it yourself.
 
@@ -46,10 +46,10 @@ below instead of hand-flattening it yourself.
 composer install
 ```
 
-This resolves `marnold-ebsco/phpfolioclient` from the sibling
-`../phpFolioClient2` checkout (via a `path` repository in
-[`composer.json`](composer.json) — it's junctioned in, not copied, so it
-always tracks that project), installs Guzzle transitively, and installs
+This resolves `marnold-ebsco/phpfolioclient` from its own GitHub repo
+(https://github.com/marnold-ebsco/phpFolioClient, via a `vcs` repository
+in [`composer.json`](composer.json) — no local checkout or path needed),
+installs Guzzle transitively, and installs
 `phpunit/phpunit` as a dev dependency.
 
 ## Running it
@@ -376,7 +376,7 @@ An interface with neither column populated simply gets no credential record.
 
 ## Processing the Organization_Template.xlsx workbook
 
-FOLIO's own bulk-import workbook (`Organization_Template (1).xlsx`) has a
+FOLIO's own bulk-import workbook (`Organization_Template.xlsx`) has a
 different shape than the flat delimited files above: one "Main Org
 record" row per organization holding just the *primary* address/phone/
 email/url/alias, plus one-to-many child sheets (Alt names, Addresses,
@@ -486,7 +486,7 @@ Note: categories.json line 2 ('OnlyBad') was only referenced by rejected organiz
 This is purely informational, not an error — it doesn't set the exit
 code or count toward `hadErrors`.
 
-The original, unmodified `Organization_Template (1).xlsx` is left in
+The original, unmodified `Organization_Template.xlsx` is left in
 place — the example-data workbook is a separate copy, so you still have
 a blank template to fill out yourself.
 
