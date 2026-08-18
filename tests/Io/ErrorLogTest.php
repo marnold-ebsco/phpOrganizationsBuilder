@@ -51,6 +51,37 @@ final class ErrorLogTest extends TestCase {
         $this->assertSame("second run\n", file_get_contents($path));
     }
 
+    public function testOpenWithAppendContinuesAnExistingFileInstead(): void {
+        $path = $this->dir . '/errors.log';
+        mkdir($this->dir);
+
+        $first = new ErrorLog($path);
+        $first->open();
+        $first->write('first section');
+        $first->close();
+
+        $second = new ErrorLog($path);
+        $second->open(true);
+        $second->write('second section');
+        $second->close();
+
+        $this->assertSame("first section\nsecond section\n", file_get_contents($path));
+    }
+
+    public function testOpenWithAppendStillCreatesTheFileIfItDoesNotExistYet(): void {
+        $path = $this->dir . '/nested/errors.log';
+
+        $log = new ErrorLog($path);
+        $log->open(true);
+        $log->write('hello');
+        $log->close();
+
+        $this->assertSame("hello\n", file_get_contents($path));
+
+        unlink($path);
+        rmdir($this->dir . '/nested');
+    }
+
     public function testDefaultPathForIncludesInputBasenameAndIsUnique(): void {
         $pathA = ErrorLog::defaultPathFor('/data/orgs.csv', $this->dir);
         $pathB = ErrorLog::defaultPathFor('/data/orgs.csv', $this->dir);

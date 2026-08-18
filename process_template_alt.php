@@ -32,7 +32,13 @@
  *   --keep-intermediate Don't delete the intermediate file (useful for debugging).
  *   --mapping=PATH       Passed through to bin/build-organizations.
  *   --format=json|ndjson Passed through to bin/build-organizations.
- *   --error-log=PATH     Passed through to bin/build-organizations.
+ *   --error-log=PATH     This script's own flattening-stage summary (see
+ *                        below) is written here first; bin/build-organizations
+ *                        then appends everything else to the same file, so
+ *                        the whole run still ends up in one log (default:
+ *                        a fresh, timestamped file under logs/ at the
+ *                        project root, same convention bin/build-organizations
+ *                        itself uses).
  *   --folio-config=PATH  Passed through to bin/build-organizations.
  *   --help               Show this message.
  */
@@ -41,6 +47,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 use Organizations\AlternateTemplateFlattener;
 use Organizations\Cli\Options;
+use Organizations\Io\ErrorLog;
 use Organizations\Io\XlsxReader;
 
 const PROJECT_ROOT = __DIR__;
@@ -85,6 +92,14 @@ function main(array $argv): int {
         return 1;
     }
 
+    // Resolved now (rather than left to bin/build-organizations to pick
+    // its own default) so this script's own flattening-stage summary
+    // below and bin/build-organizations's later sections both land in
+    // the exact same file — see --append-log further down.
+    $errorLogPath = isset($options['error-log']) && $options['error-log'] !== true
+        ? (string) $options['error-log']
+        : ErrorLog::defaultPathFor($inputPath, PROJECT_ROOT . '/logs');
+
     $reader = new XlsxReader($inputPath);
     try {
         $reader->open();
@@ -97,11 +112,24 @@ function main(array $argv): int {
     $flatRows = $flattener->flatten($reader);
     $reader->close();
 
+    $errorLog = new ErrorLog($errorLogPath);
+    try {
+        $errorLog->open();
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        return 1;
+    }
+    $errorLog->write('== template flattening ==');
+
     if ($flattener->getDroppedNoteCount() > 0) {
-        fwrite(STDERR, "Note: {$flattener->getDroppedNoteCount()} row(s) on the 'Notes' sheet have no destination in the organization schema and are not included in any output.\n");
+        $message = "Note: {$flattener->getDroppedNoteCount()} row(s) on the 'Notes' sheet have no destination in the organization schema and are not included in any output.";
+        fwrite(STDERR, $message . "\n");
+        $errorLog->write($message);
     }
     if ($flatRows === []) {
         fwrite(STDERR, "Error: no organizations found on the 'Main Org record' sheet (no row has an ORG CODE).\n");
+        $errorLog->write("Error: no organizations found on the 'Main Org record' sheet (no row has an ORG CODE).");
+        $errorLog->close();
         return 1;
     }
 
@@ -116,6 +144,7 @@ function main(array $argv): int {
     $intermediateHandle = fopen($intermediatePath, 'w');
     if ($intermediateHandle === false) {
         fwrite(STDERR, "Error: cannot write intermediate file '$intermediatePath'\n");
+        $errorLog->close();
         return 1;
     }
     fwrite($intermediateHandle, implode("\t", $columns) . "\n");
@@ -125,11 +154,17 @@ function main(array $argv): int {
     }
     fclose($intermediateHandle);
 
-    fwrite(STDERR, sprintf("Flattened %d organization(s) from '%s' into '%s'.\n", count($flatRows), $inputPath, $intermediatePath));
+    $flattenedMessage = sprintf("Flattened %d organization(s) from '%s' into '%s'.", count($flatRows), $inputPath, $intermediatePath);
+    fwrite(STDERR, $flattenedMessage . "\n");
+    $errorLog->write($flattenedMessage);
+    $errorLog->write('');
+    $errorLog->close();
 
     // --- hand off to the same, unmodified bin/build-organizations -------
-    $buildArgs = ['--input=' . $intermediatePath];
-    foreach (['mapping', 'format', 'error-log', 'folio-config'] as $passthroughOption) {
+    // --error-log/--append-log continue the exact same file this script
+    // just wrote its own section to, rather than starting a fresh one.
+    $buildArgs = ['--input=' . $intermediatePath, '--error-log=' . $errorLogPath, '--append-log'];
+    foreach (['mapping', 'format', 'folio-config'] as $passthroughOption) {
         if (isset($options[$passthroughOption]) && $options[$passthroughOption] !== true) {
             $buildArgs[] = "--{$passthroughOption}=" . $options[$passthroughOption];
         }

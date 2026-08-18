@@ -81,6 +81,10 @@
  *                                   "== section ==" (default: a fresh, timestamped
  *                                   file under logs/ at the project root, created
  *                                   automatically if that directory doesn't exist).
+ *   --append-log                    Append to --error-log instead of truncating it
+ *                                   (used by process_template.php/process_template_alt.php
+ *                                   to continue the same file their own flattening-stage
+ *                                   summary already started; not usually needed directly).
  *   --folio-config=PATH             Optional FolioConfig INI file (okapiUrl,
  *                                   tenant_id, username, password — see
  *                                   phpFolioClient's FolioConfig). When given,
@@ -585,10 +589,13 @@ function main(array $argv): int {
     // One log file for the whole run — every phase below writes its own
     // "== section ==" block into it, so all of a run's problems (and any
     // reference data confirmed to already exist) live in one place
-    // instead of being scattered across several files.
+    // instead of being scattered across several files. --append-log
+    // continues a file a separate, earlier step already started (see
+    // process_template.php's flattening-stage summary) instead of
+    // truncating it.
     $errorLog = new ErrorLog($errorLogPath);
     try {
-        $errorLog->open();
+        $errorLog->open(isset($options['append-log']));
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         return 1;

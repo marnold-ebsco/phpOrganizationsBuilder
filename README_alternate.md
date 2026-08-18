@@ -78,10 +78,11 @@ exactly as before.
 
 Same interface as `process_template.php` — see
 [Processing the Organization_Template.xlsx workbook](README.md#processing-the-organization_templatexlsx-workbook)
-for the full option list (all of it passes through to
-`bin/build-organizations` unchanged: `--mapping`, `--format`,
-`--error-log`, `--folio-config`, etc.). The log format itself — the
-`Run started`/`Run ended`/`Elapsed time` lines, and `--folio-config`
+for the full option list, including exactly how `--error-log` is
+handled (this script writes its own flattening-stage summary first,
+then `bin/build-organizations` appends everything else to that same
+file). The rest of the log format — the `Run started`/`Run ended`/
+`Elapsed time` lines, the orphan-detection notes, and `--folio-config`
 picking up the tenant's own configured timezone for those timestamps —
 is [documented under "Running it"](README.md#running-it) in the main
 README; since it's all written by the same, unmodified

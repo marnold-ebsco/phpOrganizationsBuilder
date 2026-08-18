@@ -5,9 +5,13 @@ namespace Organizations\Io;
 use RuntimeException;
 
 /**
- * A single run's error/validation log file. Every {@see open()} call
- * creates a brand-new file (never appends to an existing one), creating
- * its parent directory if necessary.
+ * A single run's error/validation log file. By default, every
+ * {@see open()} call creates a brand-new file (never appends to an
+ * existing one), creating its parent directory if necessary — pass
+ * `$append = true` for the one case that's meant to continue a file a
+ * separate, earlier step already started (see `process_template.php`'s
+ * flattening-stage summary, continued by `bin/build-organizations`'s own
+ * "Run started" section).
  */
 final class ErrorLog {
     /** @var resource|null */
@@ -41,17 +45,21 @@ final class ErrorLog {
     }
 
     /**
-     * Create the log file (and its parent directory, if needed).
+     * Create the log file (and its parent directory, if needed) — or,
+     * with `$append = true`, continue writing to one that already exists.
      *
+     * @param $append When true, opens in append mode instead of
+     *                truncating — for continuing a file an earlier step
+     *                already wrote to, rather than starting fresh.
      * @throws RuntimeException If the directory can't be created, or
      *                          the file can't be opened for writing.
      */
-    public function open(): void {
+    public function open(bool $append = false): void {
         $dir = dirname($this->path);
         if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
             throw new RuntimeException("Cannot create directory '$dir'");
         }
-        $handle = fopen($this->path, 'w');
+        $handle = fopen($this->path, $append ? 'a' : 'w');
         if ($handle === false) {
             throw new RuntimeException("Cannot write to error log '{$this->path}'");
         }

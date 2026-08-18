@@ -395,15 +395,26 @@ fixture in `tests/fixtures/`), writes that to a temporary intermediate
 file, then hands off to `bin/build-organizations` to actually build and
 validate everything — it doesn't duplicate any building logic itself.
 Every `bin/build-organizations` option (`--mapping`, `--format`,
-`--error-log`, `--folio-config`) passes through unchanged; run
+`--folio-config`) passes through unchanged; run
 `php process_template.php --help` for the full list, including
 `--intermediate=PATH`/`--keep-intermediate` if you want to inspect the
 flattened file it generates.
 
+`--error-log` is handled a little specially: this script resolves the
+path itself (same default-naming convention as `bin/build-organizations`'s
+own, if you don't pass one) and writes its *own* flattening-stage
+summary there first, under a `== template flattening ==` heading —
+including the dropped-"Notes"-rows count mentioned below — before handing
+that same path to `bin/build-organizations` (via `--append-log`, so it
+continues the file rather than overwriting it). End to end, it's still
+one log for the whole run, same as running `bin/build-organizations`
+directly.
+
 Two things the template collects have no destination in the FOLIO
 `organization`/`contact` schemas and are read but dropped, not built into
-anything: the "Notes" sheet (reported as a count on stderr) and a
-contact's job "TITLE" column (silently, since there's nothing to count).
+anything: the "Notes" sheet (its count goes to both stderr and the log's
+`== template flattening ==` section) and a contact's job "TITLE" column
+(silently, since there's nothing to count).
 
 Two gaps in the template itself needed filling to reach full schema
 coverage — [`Organization_Template_example_data.xlsx`](Organization_Template_example_data.xlsx)
