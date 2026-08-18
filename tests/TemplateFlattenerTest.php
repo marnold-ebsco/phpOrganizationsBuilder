@@ -54,6 +54,7 @@ final class TemplateFlattenerTest extends TestCase {
         $this->assertSame('info@acme.example', $acme['email_value']);
         $this->assertSame('https://acme.example', $acme['url_value']);
         $this->assertSame('Main website', $acme['url_description']);
+        $this->assertSame('vendor note', $acme['url_notes']);
         $this->assertSame('Support', $acme['url_categories']);
     }
 
@@ -94,6 +95,7 @@ final class TemplateFlattenerTest extends TestCase {
 
         $this->assertSame('sales@acme.example', $acme['email2_value']);
         $this->assertSame('https://support.acme.example', $acme['url2_value']);
+        $this->assertSame('second url note', $acme['url2_notes']);
     }
 
     public function testContactPeopleSheetMapsToContactOneWithTitleDropped(): void {

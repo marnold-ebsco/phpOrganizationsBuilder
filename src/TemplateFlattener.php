@@ -31,7 +31,9 @@ use Organizations\Io\XlsxReader;
  * since the real `organization` schema has no general-purpose free-text
  * notes field anywhere — the only `notes` property in the whole schema
  * is `edi.notes`, specific to EDI transmission configuration, not a
- * general comment field.
+ * general comment field. A URL's own `notes` *is* real, but it's a
+ * single string (not a list, unlike `categories`) — hence the singular
+ * "URL NOTE"/"NOTE" column names, deliberately not "NOTES".
  */
 final class TemplateFlattener {
     /**
@@ -78,7 +80,8 @@ final class TemplateFlattener {
             $this->copy($flat, $mainRow, 'EMAIL', 'email_value');
             $this->copy($flat, $mainRow, 'URL', 'url_value');
             $this->copy($flat, $mainRow, 'URL DESCRIPTION', 'url_description');
-            $this->copy($flat, $mainRow, 'URL CATEGORY', 'url_categories');
+            $this->copy($flat, $mainRow, 'URL NOTE', 'url_notes');
+            $this->copy($flat, $mainRow, 'URL CATEGORIES', 'url_categories');
             $this->copy($flat, $mainRow, 'ORG TYPE', 'organizationTypes');
             if (trim((string) ($mainRow['FAX'] ?? '')) !== '') {
                 $flat['phone2_phoneNumber'] = trim((string) $mainRow['FAX']);
@@ -102,7 +105,7 @@ final class TemplateFlattener {
                 $this->copy($flat, $row, 'REGION', "address{$index}_stateRegion");
                 $this->copy($flat, $row, 'POSTAL CODE', "address{$index}_zipCode");
                 $this->copy($flat, $row, 'COUNTRY', "address{$index}_country");
-                $this->copy($flat, $row, 'CATEGORY', "address{$index}_categories");
+                $this->copy($flat, $row, 'CATEGORIES', "address{$index}_categories");
                 $index++;
             }
 
@@ -111,7 +114,7 @@ final class TemplateFlattener {
             foreach ($phones[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'PHONE', "phone{$index}_phoneNumber");
                 $this->copy($flat, $row, 'TYPE', "phone{$index}_type");
-                $this->copy($flat, $row, 'CATEGORY', "phone{$index}_categories");
+                $this->copy($flat, $row, 'CATEGORIES', "phone{$index}_categories");
                 $index++;
             }
 
@@ -120,7 +123,7 @@ final class TemplateFlattener {
             foreach ($emails[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'EMAIL', "email{$index}_value");
                 $this->copy($flat, $row, 'DESCRIPTION', "email{$index}_description");
-                $this->copy($flat, $row, 'CATEGORY', "email{$index}_categories");
+                $this->copy($flat, $row, 'CATEGORIES', "email{$index}_categories");
                 $index++;
             }
 
@@ -129,7 +132,8 @@ final class TemplateFlattener {
             foreach ($urls[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'URL', "url{$index}_value");
                 $this->copy($flat, $row, 'DESCRIPTION', "url{$index}_description");
-                $this->copy($flat, $row, 'CATEGORY', "url{$index}_categories");
+                $this->copy($flat, $row, 'NOTE', "url{$index}_notes");
+                $this->copy($flat, $row, 'CATEGORIES', "url{$index}_categories");
                 $index++;
             }
 
@@ -140,7 +144,7 @@ final class TemplateFlattener {
                 $this->copy($flat, $row, 'FIRST NAME', "contact{$index}_firstName");
                 $this->copy($flat, $row, 'LAST NAME', "contact{$index}_lastName");
                 $this->copy($flat, $row, 'NOTES', "contact{$index}_notes");
-                $this->copy($flat, $row, 'CATEGORY', "contact{$index}_categories");
+                $this->copy($flat, $row, 'CATEGORIES', "contact{$index}_categories");
                 $this->copy($flat, $row, 'EMAIL', "contact{$index}_email");
                 $this->copy($flat, $row, 'DESCRIPTION', "contact{$index}_emailDescription");
                 $this->copy($flat, $row, 'PHONE', "contact{$index}_phone");

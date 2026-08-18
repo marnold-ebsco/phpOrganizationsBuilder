@@ -34,7 +34,10 @@ use Organizations\Io\XlsxReader;
  * stays put on Main Org record. Neither template has a "Notes" sheet:
  * the real `organization` schema has no general-purpose free-text notes
  * field anywhere (the only `notes` property in the whole schema is
- * `edi.notes`, specific to EDI transmission configuration).
+ * `edi.notes`, specific to EDI transmission configuration). A URL's own
+ * `notes` *is* real, but it's a single string (not a list, unlike
+ * `categories`) — hence the singular "NOTE" column name on the "URLs"
+ * sheet, deliberately not "NOTES".
  */
 final class AlternateTemplateFlattener {
     /**
@@ -91,7 +94,7 @@ final class AlternateTemplateFlattener {
                 $this->copy($flat, $row, 'REGION', "{$prefix}stateRegion");
                 $this->copy($flat, $row, 'POSTAL CODE', "{$prefix}zipCode");
                 $this->copy($flat, $row, 'COUNTRY', "{$prefix}country");
-                $this->copy($flat, $row, 'CATEGORY', "{$prefix}categories");
+                $this->copy($flat, $row, 'CATEGORIES', "{$prefix}categories");
                 $this->copy($flat, $row, 'IS PRIMARY', "{$prefix}isPrimary");
                 $index++;
             }
@@ -103,7 +106,7 @@ final class AlternateTemplateFlattener {
                 $prefix = $this->instancePrefix('phone', $index);
                 $this->copy($flat, $row, 'PHONE', "{$prefix}phoneNumber");
                 $this->copy($flat, $row, 'TYPE', "{$prefix}type");
-                $this->copy($flat, $row, 'CATEGORY', "{$prefix}categories");
+                $this->copy($flat, $row, 'CATEGORIES', "{$prefix}categories");
                 $this->copy($flat, $row, 'IS PRIMARY', "{$prefix}isPrimary");
                 $index++;
             }
@@ -114,7 +117,7 @@ final class AlternateTemplateFlattener {
                 $prefix = $this->instancePrefix('email', $index);
                 $this->copy($flat, $row, 'EMAIL', "{$prefix}value");
                 $this->copy($flat, $row, 'DESCRIPTION', "{$prefix}description");
-                $this->copy($flat, $row, 'CATEGORY', "{$prefix}categories");
+                $this->copy($flat, $row, 'CATEGORIES', "{$prefix}categories");
                 $this->copy($flat, $row, 'IS PRIMARY', "{$prefix}isPrimary");
                 $index++;
             }
@@ -125,7 +128,8 @@ final class AlternateTemplateFlattener {
                 $prefix = $this->instancePrefix('url', $index);
                 $this->copy($flat, $row, 'URL', "{$prefix}value");
                 $this->copy($flat, $row, 'DESCRIPTION', "{$prefix}description");
-                $this->copy($flat, $row, 'CATEGORY', "{$prefix}categories");
+                $this->copy($flat, $row, 'NOTE', "{$prefix}notes");
+                $this->copy($flat, $row, 'CATEGORIES', "{$prefix}categories");
                 $this->copy($flat, $row, 'IS PRIMARY', "{$prefix}isPrimary");
                 $index++;
             }
@@ -137,7 +141,7 @@ final class AlternateTemplateFlattener {
                 $this->copy($flat, $row, 'FIRST NAME', "contact{$index}_firstName");
                 $this->copy($flat, $row, 'LAST NAME', "contact{$index}_lastName");
                 $this->copy($flat, $row, 'NOTES', "contact{$index}_notes");
-                $this->copy($flat, $row, 'CATEGORY', "contact{$index}_categories");
+                $this->copy($flat, $row, 'CATEGORIES', "contact{$index}_categories");
                 $this->copy($flat, $row, 'EMAIL', "contact{$index}_email");
                 $this->copy($flat, $row, 'DESCRIPTION', "contact{$index}_emailDescription");
                 $this->copy($flat, $row, 'PHONE', "contact{$index}_phone");

@@ -197,6 +197,38 @@ final class OrganizationBuilderTest extends TestCase {
         );
     }
 
+    public function testAddressCategoriesSplitOnSemicolonNotPipe(): void {
+        [$org, $errors] = $this->build([
+            'name' => 'Category Co',
+            'code' => 'CATCO',
+            'status' => 'Active',
+            'address_city' => 'Ipswich',
+            'address_categories' => 'Billing;Support',
+        ]);
+
+        $this->assertSame([], $errors);
+        $this->assertSame(
+            [
+                $this->registry->resolve('category', 'Billing'),
+                $this->registry->resolve('category', 'Support'),
+            ],
+            $org['addresses'][0]['categories']
+        );
+    }
+
+    public function testUrlNotesFlowsThroughAsASingleStringNotAList(): void {
+        [$org, $errors] = $this->build([
+            'name' => 'Notes Co',
+            'code' => 'NOTESCO',
+            'status' => 'Active',
+            'url_value' => 'https://www.example.com',
+            'url_notes' => 'Requires vendor portal login credentials',
+        ]);
+
+        $this->assertSame([], $errors);
+        $this->assertSame('Requires vendor portal login credentials', $org['urls'][0]['notes']);
+    }
+
     public function testBuildsTwoAccountsFromBundledMapping(): void {
         [$org, $errors] = $this->build([
             'name' => 'Two Accounts Co',

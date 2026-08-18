@@ -88,7 +88,7 @@ whether its content is one JSON array or one-object-per-line; see `--format` bel
 | `--format=json\|ndjson` | `ndjson` | Applies to all 6 outputs. `ndjson` writes one JSON object per line — the form most loading tools (including a simple line-by-line POST loop) expect; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json` (see above). |
 | `--delimiter=CHAR` | `tab` | Field delimiter — **tab is the normal/expected delimiter for input files.** Accepts a literal character or the names `tab`, `pipe`, `semicolon`, `comma`. |
 | `--enclosure=CHAR` | `"` | Field quote/enclosure character. |
-| `--list-delimiter=STR` | `\|` | Delimiter used *within* a single cell for multi-value fields (e.g. `organizationTypes`). Same convenience names as `--delimiter` are accepted. |
+| `--list-delimiter=STR` | `\|` | Delimiter used *within* a single cell for multi-value fields (e.g. `organizationTypes`). Same convenience names as `--delimiter` are accepted. **Does not apply to `categories`** — a cell listing more than one category name always splits on `;` regardless of this setting (see [Reference data](#reference-data-categories--organization-types)). |
 | `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run.** Every phase (existing-reference-data lookup, organizations, contacts, interfaces + credentials) writes its own `== section ==` block into it, so everything that went wrong (or, with `--folio-config`, everything that was already found to exist) lives in one place. |
 | `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization types are fetched from that tenant first — see [Reference data](#reference-data-categories--organization-types). |
 | `--help` | | Print usage. |
@@ -148,6 +148,14 @@ in your mapped columns you supply the **name** instead (e.g. `Billing`,
 `Vendor`), and the same name always resolves to the same UUID within one
 run, wherever it appears (see `Organizations\ReferenceRegistry`).
 
+A `categories` cell can list more than one name — `categories` is a real
+array on every group that has it, unlike (for example) a URL's `notes`,
+which is a single string. Separate multiple category names with a
+semicolon (`Billing;Support`), **not** `--list-delimiter` — categories
+always split on `;` regardless of that setting, since a category name
+itself is free text and more likely to contain the general delimiter's
+default `|` than a `;`.
+
 By default every name is treated as new and gets a freshly generated
 UUID — `categories.json`/`organization_types.json` list everything that
 needs to be created. Pass `--folio-config=PATH` (a FolioConfig INI file —
@@ -168,7 +176,7 @@ versus what this run actually created.
 php vendor/bin/phpunit
 ```
 
-122 tests across `tests/`, covering the mapper's resolution rules
+143 tests across `tests/`, covering the mapper's resolution rules
 (including multi-instance indexing and per-instance sub-mapping), every
 cast/validation path, nested-group behavior, the reference-data registry,
 the xlsx reader and template flattener, file-reading edge cases, and a
@@ -237,7 +245,7 @@ To point at a different mapping file entirely, pass `--mapping=PATH`.
 ```
 addresses.addressLine1   addresses.addressLine2   addresses.city
 addresses.stateRegion    addresses.zipCode        addresses.country
-addresses.language       addresses.categories     (categories is a list of NAMES — see Reference data)
+addresses.language       addresses.categories     (one or more NAMES, ';'-delimited — see Reference data)
 addresses.isPrimary
 
 phoneNumbers.phoneNumber (required if the group is present)
@@ -248,8 +256,8 @@ emails.value (required)  emails.description
 emails.language          emails.categories        emails.isPrimary
 
 urls.value (required)    urls.description
-urls.language            urls.notes               urls.categories
-urls.isPrimary
+urls.language            urls.notes (a single string, not a list)
+urls.categories          urls.isPrimary
 
 aliases.value (required) aliases.description
 
@@ -417,11 +425,11 @@ template entirely rather than kept-but-dropped, since the real
 anywhere — the only `notes` property in the whole schema is `edi.notes`,
 specific to EDI transmission configuration).
 
-Two gaps in the template itself needed filling to reach full schema
+Several gaps in the template itself needed filling to reach full schema
 coverage — [`Organization_Template_example_data.xlsx`](Organization_Template_example_data.xlsx)
 (16 example organizations, exercising every column at least once; EBSCO
 alone has multiple aliases, addresses, phones, emails, URLs, contact
-people, and interfaces) shows both:
+people, and interfaces) shows all of them:
 - The template has no way to record more than one URL per organization —
   it gained a **"URLs" sheet**, mirroring the existing "Emails" sheet's shape.
 - The template has no organization-type column at all — "Main Org record"
@@ -429,10 +437,14 @@ people, and interfaces) shows both:
   `organizationTypes` resolution described in [Reference data](#reference-data-categories--organization-types).
 - The "Interfaces" sheet had no way to record a delivery method — it
   gained a **"DELIVERY METHOD" column**, mapping to `interfaceN_deliveryMethod`.
-- "Main Org record" had no way to describe or categorize its own
-  (primary) URL — it gained **"URL DESCRIPTION"** and **"URL CATEGORY"**
-  columns, mapping to `url_description`/`url_categories` (the latter a
-  category **name**, same resolution as every other `categories` column).
+- "Main Org record" had no way to describe, annotate, or categorize its
+  own (primary) URL — it gained **"URL DESCRIPTION"**, **"URL NOTE"**, and
+  **"URL CATEGORIES"** columns, mapping to `url_description`/`url_notes`/
+  `url_categories`. "URL NOTE" is a single free-text string (`urls.notes`
+  isn't a list); "URL CATEGORIES" is one or more category **names**,
+  separated by `;` if more than one — same resolution and delimiter as
+  every other `CATEGORIES` column (see
+  [Reference data](#reference-data-categories--organization-types)).
 
 Every enum-constrained column in the template is a real Excel dropdown
 (data validation), so a filled-out copy can only contain a value the
@@ -442,6 +454,24 @@ code will actually accept: "Main Org record" Vendor (Yes/No) and status
 DELIVERY METHOD (Online/FTP/Email/Other). The dropdown is a convenience
 only — a value typed in that bypasses it is still caught by the same
 validation `bin/build-organizations` applies to any other input.
+
+Coloured columns in the template are the ones the real FOLIO schema
+actually marks `required` for whatever that column's row/sheet builds —
+`ORG CODE`/`ORG NAME`/`ORG status` on "Main Org record" (the
+organization's own `name`/`code`/`status`), `ALT NAME` on "Alt names",
+`PHONE` on "Phones", `EMAIL` on "Emails", `URL` on "URLs", `FIRST
+NAME`/`LAST NAME` on "Contact people" (a contact's *own* required
+fields — its embedded `EMAIL`/`PHONE` are not colored, since a contact's
+email/phone, like an organization's, is an entirely optional group), and
+`ACCOUNT NAME`/`ACCOUNT NUMBER`/`ACCOUNT STATUS` on "Accounts". A
+coloured pair can also mean "required *together*, only if you use this
+at all" rather than "always required": on "Interfaces", `USERNAME` and
+`PASSWORD` are both colored because filling in one without the other
+gets that login-credentials record skipped with a validation error, even
+though neither is required on its own — and even though neither is
+required, `NAME` on that same sheet is deliberately **not** coloured,
+because the real `interface` schema has no required fields at all, not
+even a name.
 
 Two of the 16 (`RIVERSIDE`, `METRODS`) are **deliberately broken** —
 one has an invalid `status` ("Closed"), the other an invalid nested
@@ -457,7 +487,7 @@ credential) are separate top-level records — `RIVERSIDE`'s and
 `contacts.json`/`interfaces.json`/`credentials.json` even though
 `RIVERSIDE`/`METRODS` themselves are missing from `organizations.json`.
 Less obviously, the same is true of **categories and organization
-types**: a name referenced by any field on a row — a phone's `CATEGORY`,
+types**: a name referenced by any field on a row — a phone's `CATEGORIES`,
 an `ORG TYPE`, etc. — is resolved into `categories.json`/
 `organization_types.json` as soon as that field is read, before the
 organization's own validation runs, so it's included even if the

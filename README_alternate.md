@@ -39,8 +39,13 @@ for the exact rule, including what happens if you mark a row explicitly
 **"URLs" is a new sheet.** The original blank template has no sheet for
 extra URLs at all (only a "Main Org record" URL column) — the alternate
 template needs one since URLs no longer have anywhere else to go. It's
-shaped like the existing "Emails" sheet: `ORG CODE`, `URL`,
-`DESCRIPTION`, `CATEGORY`, `IS PRIMARY`.
+shaped like the existing "Emails" sheet, plus a `NOTE` column for the
+one field a URL has that an email doesn't: `ORG CODE`, `URL`,
+`DESCRIPTION`, `NOTE`, `CATEGORIES`, `IS PRIMARY`. `NOTE` is a single
+free-text string (not a list); `CATEGORIES` can hold more than one name,
+`;`-separated — see
+[Setting up the field mapping](README.md#setting-up-the-field-mapping)
+in the main README for both.
 
 Every other sheet — "Contact people", "Interfaces", "Vendor info",
 "Accounts" — is unchanged from the original template and works exactly

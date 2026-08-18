@@ -97,9 +97,11 @@ final class AlternateTemplateFlattenerTest extends TestCase {
 
         $this->assertSame('https://acme.example', $acme['url_value']);
         $this->assertSame('Main website', $acme['url_description']);
+        $this->assertSame('vendor note', $acme['url_notes']);
         $this->assertSame('Support', $acme['url_categories']);
         $this->assertSame('Yes', $acme['url_isPrimary']);
         $this->assertSame('https://support.acme.example', $acme['url2_value']);
+        $this->assertSame('second url note', $acme['url2_notes']);
     }
 
     public function testContactPeopleSheetMapsToContactOneWithTitleDropped(): void {

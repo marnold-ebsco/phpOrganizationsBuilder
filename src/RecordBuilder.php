@@ -33,7 +33,10 @@ final class RecordBuilder {
      * @param $schemaClass   Fully-qualified name of a schema class (see
      *                       class docblock for the shape it must expose).
      * @param $listDelimiter Delimiter used *within* a cell for
-     *                       multi-value fields (default `|`).
+     *                       multi-value fields (default `|`) — except
+     *                       category name lists, which always use
+     *                       {@see CATEGORY_DELIMITER} regardless of this
+     *                       setting (see its own docblock for why).
      * @param $registry      Shared reference-data resolver for `category_ref_list`/
      *                       `ref:<namespace>` fields; required if the
      *                       schema uses any, otherwise unused.
@@ -47,6 +50,18 @@ final class RecordBuilder {
         private readonly ?ReferenceRegistry $registry = null,
     ) {
     }
+
+    /**
+     * Delimiter for a cell listing more than one category name — fixed
+     * at `;`, independent of the general `$listDelimiter` every other
+     * multi-value field uses. Categories get their own delimiter because
+     * they're the one list field a spreadsheet author is likely to type
+     * by hand often enough that a semicolon (visually distinct from
+     * punctuation that might appear in a category name itself) is worth
+     * having, rather than sharing whatever delimiter the rest of the row
+     * happens to use.
+     */
+    private const CATEGORY_DELIMITER = ';';
 
     /**
      * Build and validate one record from one row.
@@ -75,15 +90,16 @@ final class RecordBuilder {
             if ($raw === null || trim($raw) === '') {
                 continue;
             }
-            $items = $this->caster->splitList($raw, $this->listDelimiter);
+            $namespace = str_starts_with($itemType, 'ref:') ? substr($itemType, strlen('ref:')) : null;
+            $delimiter = $namespace === 'category' ? self::CATEGORY_DELIMITER : $this->listDelimiter;
+            $items = $this->caster->splitList($raw, $delimiter);
             if ($itemType === 'uuid') {
                 foreach ($items as $item) {
                     if (!$this->folioUtils->isValidUuid($item)) {
                         $errors[] = "Row $rowNum: '$field' contains invalid UUID '$item'";
                     }
                 }
-            } elseif (str_starts_with($itemType, 'ref:')) {
-                $namespace = substr($itemType, strlen('ref:'));
+            } elseif ($namespace !== null) {
                 $items = array_map(fn($item) => $this->registry->resolve($namespace, $item, $rowNum), $items);
             } elseif (isset($schemaClass::LIST_FIELD_ENUMS[$field])) {
                 $allowedValues = $schemaClass::LIST_FIELD_ENUMS[$field];
@@ -141,7 +157,8 @@ final class RecordBuilder {
             }
 
             if ($subType === 'uuid_list' || $subType === 'category_ref_list') {
-                $items = $this->caster->splitList($raw, $this->listDelimiter);
+                $delimiter = $subType === 'category_ref_list' ? self::CATEGORY_DELIMITER : $this->listDelimiter;
+                $items = $this->caster->splitList($raw, $delimiter);
                 if ($subType === 'uuid_list') {
                     foreach ($items as $item) {
                         if (!$this->folioUtils->isValidUuid($item)) {
