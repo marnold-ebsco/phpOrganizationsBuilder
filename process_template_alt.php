@@ -121,11 +121,6 @@ function main(array $argv): int {
     }
     $errorLog->write('== template flattening ==');
 
-    if ($flattener->getDroppedNoteCount() > 0) {
-        $message = "Note: {$flattener->getDroppedNoteCount()} row(s) on the 'Notes' sheet have no destination in the organization schema and are not included in any output.";
-        fwrite(STDERR, $message . "\n");
-        $errorLog->write($message);
-    }
     if ($flatRows === []) {
         fwrite(STDERR, "Error: no organizations found on the 'Main Org record' sheet (no row has an ORG CODE).\n");
         $errorLog->write("Error: no organizations found on the 'Main Org record' sheet (no row has an ORG CODE).");

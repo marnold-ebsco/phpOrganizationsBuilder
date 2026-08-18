@@ -24,18 +24,19 @@ use Organizations\Io\XlsxReader;
  * (Yes/No) column, since the real schema's `isPrimary` flag has nowhere
  * else to come from once there's no single implicit "primary" slot on
  * Main Org record. Every other sheet (Contact people, Interfaces, Vendor
- * info, Accounts, Notes) is unchanged from the original template and is
+ * info, Accounts) is unchanged from the original template and is
  * flattened identically. An optional "ORG TYPE" column on Main Org
  * record (mapping to `organizationTypes`, same as the original
  * template's own example data) is read if present, same rationale as
  * "Vendor info"'s "CURRENCIES" column: `organizationTypes` is a list
  * field, but it's a single pipe-delimited cell, not a one-row-per-
  * instance repeatable group, so it has no dedicated sheet of its own and
- * stays put on Main Org record.
+ * stays put on Main Org record. Neither template has a "Notes" sheet:
+ * the real `organization` schema has no general-purpose free-text notes
+ * field anywhere (the only `notes` property in the whole schema is
+ * `edi.notes`, specific to EDI transmission configuration).
  */
 final class AlternateTemplateFlattener {
-    private int $droppedNoteCount = 0;
-
     /**
      * Read every sheet and build one flattened row per organization.
      *
@@ -54,9 +55,6 @@ final class AlternateTemplateFlattener {
         $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 1));
         $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 1));
         $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 1));
-        $notes = $this->groupByOrgCode($this->readSheetRows($reader, 'Notes', 1));
-
-        $this->droppedNoteCount = array_sum(array_map('count', $notes));
 
         $flatRows = [];
         foreach ($mainRows as $mainRow) {
@@ -199,11 +197,6 @@ final class AlternateTemplateFlattener {
         }
 
         return $flatRows;
-    }
-
-    /** @return The number of "Notes" sheet rows found by the last {@see flatten()} call that have no schema destination. */
-    public function getDroppedNoteCount(): int {
-        return $this->droppedNoteCount;
     }
 
     /**

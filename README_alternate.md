@@ -43,8 +43,10 @@ shaped like the existing "Emails" sheet: `ORG CODE`, `URL`,
 `DESCRIPTION`, `CATEGORY`, `IS PRIMARY`.
 
 Every other sheet — "Contact people", "Interfaces", "Vendor info",
-"Accounts", "Notes" — is unchanged from the original template and works
-exactly as [README.md](README.md) describes.
+"Accounts" — is unchanged from the original template and works exactly
+as [README.md](README.md) describes. Neither template has a "Notes"
+sheet — see [README.md](README.md#processing-the-organization_templatexlsx-workbook)
+for why.
 
 ## Why the script needed almost no changes
 

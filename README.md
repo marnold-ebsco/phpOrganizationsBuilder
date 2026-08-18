@@ -403,24 +403,25 @@ flattened file it generates.
 `--error-log` is handled a little specially: this script resolves the
 path itself (same default-naming convention as `bin/build-organizations`'s
 own, if you don't pass one) and writes its *own* flattening-stage
-summary there first, under a `== template flattening ==` heading —
-including the dropped-"Notes"-rows count mentioned below — before handing
-that same path to `bin/build-organizations` (via `--append-log`, so it
-continues the file rather than overwriting it). End to end, it's still
-one log for the whole run, same as running `bin/build-organizations`
+summary there first, under a `== template flattening ==` heading, before
+handing that same path to `bin/build-organizations` (via `--append-log`,
+so it continues the file rather than overwriting it). End to end, it's
+still one log for the whole run, same as running `bin/build-organizations`
 directly.
 
-Two things the template collects have no destination in the FOLIO
-`organization`/`contact` schemas and are read but dropped, not built into
-anything: the "Notes" sheet (its count goes to both stderr and the log's
-`== template flattening ==` section) and a contact's job "TITLE" column
-(silently, since there's nothing to count).
+A contact's job "TITLE" column is read from the template but silently
+dropped — it's not a property of the real `contact` schema, and there's
+nothing to count (unlike the old "Notes" sheet, removed from the
+template entirely rather than kept-but-dropped, since the real
+`organization` schema has no general-purpose free-text notes field
+anywhere — the only `notes` property in the whole schema is `edi.notes`,
+specific to EDI transmission configuration).
 
 Two gaps in the template itself needed filling to reach full schema
 coverage — [`Organization_Template_example_data.xlsx`](Organization_Template_example_data.xlsx)
 (16 example organizations, exercising every column at least once; EBSCO
 alone has multiple aliases, addresses, phones, emails, URLs, contact
-people, notes, and interfaces) shows both:
+people, and interfaces) shows both:
 - The template has no way to record more than one URL per organization —
   it gained a **"URLs" sheet**, mirroring the existing "Emails" sheet's shape.
 - The template has no organization-type column at all — "Main Org record"

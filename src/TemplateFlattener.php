@@ -18,21 +18,22 @@ use Organizations\Io\XlsxReader;
  * or validate any records itself — see process_template.php, which feeds
  * {@see flatten()}'s output to bin/build-organizations for that.
  *
- * A few things read from the template have no destination in the FOLIO
- * `organization`/`contact`/`interface` schemas and are deliberately
- * dropped: the "Notes" sheet (no free-text notes field exists on
- * `organization` itself — {@see getDroppedNoteCount()} reports how many
- * were skipped), the "TITLE" column on "Contact people" (not a property
- * of the real `contact` schema — see {@see Schema\ContactSchema}), and
- * the "DESCRIPTION" column on "Interfaces" (see {@see Schema\InterfaceSchema}).
+ * A couple of things read from the template have no destination in the
+ * real FOLIO `contact`/`interface` schemas and are deliberately dropped:
+ * the "TITLE" column on "Contact people" (not a property of the real
+ * `contact` schema — see {@see Schema\ContactSchema}), and the
+ * "DESCRIPTION" column on "Interfaces" (see {@see Schema\InterfaceSchema}).
  * "Interfaces"' USERNAME/PASSWORD columns *are* mapped (to
  * `interfaceN_username`/`interfaceN_password`) — bin/build-organizations
  * turns those into a companion `Schema\InterfaceCredentialSchema` record,
- * not part of the interface object itself.
+ * not part of the interface object itself. The template used to also
+ * have a "Notes" sheet, removed entirely (rather than kept-but-dropped)
+ * since the real `organization` schema has no general-purpose free-text
+ * notes field anywhere — the only `notes` property in the whole schema
+ * is `edi.notes`, specific to EDI transmission configuration, not a
+ * general comment field.
  */
 final class TemplateFlattener {
-    private int $droppedNoteCount = 0;
-
     /**
      * Read every sheet and build one flattened row per organization.
      *
@@ -51,9 +52,6 @@ final class TemplateFlattener {
         $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 1));
         $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 1));
         $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 1));
-        $notes = $this->groupByOrgCode($this->readSheetRows($reader, 'Notes', 1));
-
-        $this->droppedNoteCount = array_sum(array_map('count', $notes));
 
         $flatRows = [];
         foreach ($mainRows as $mainRow) {
@@ -202,11 +200,6 @@ final class TemplateFlattener {
         }
 
         return $flatRows;
-    }
-
-    /** @return The number of "Notes" sheet rows found by the last {@see flatten()} call that have no schema destination. */
-    public function getDroppedNoteCount(): int {
-        return $this->droppedNoteCount;
     }
 
     /**

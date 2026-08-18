@@ -131,10 +131,6 @@ final class AlternateTemplateFlattenerTest extends TestCase {
         $this->assertSame('Active', $acme['account1_accountStatus']);
     }
 
-    public function testGetDroppedNoteCountReportsNotesSheetRows(): void {
-        $this->assertSame(1, $this->flattener->getDroppedNoteCount());
-    }
-
     public function testMinimalOrganizationHasNoExtraFields(): void {
         $solo = $this->rowFor('SOLO');
 
