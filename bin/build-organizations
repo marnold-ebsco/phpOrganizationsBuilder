@@ -1,0 +1,726 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/**
+ * bin/build-organizations
+ *
+ * Class-based CLI entry point: reads a delimited file of organization
+ * data and builds every FOLIO record type this package understands from
+ * it, each written to its own output file:
+ *
+ *   - organizations  (one per row)          -> --output
+ *   - contacts       (0+ per row)           -> --contacts-output
+ *   - interfaces     (0+ per row)           -> --interfaces-output
+ *   - interfaceCredentials (0+ per row, one per interface with both a
+ *                    username and password mapped)  -> --credentials-output
+ *   - categories     (deduplicated, derived) -> --categories-output
+ *   - organizationTypes (deduplicated, derived) -> --organization-types-output
+ *
+ * Contacts and interfaces are *not* linked back into an organization's
+ * own `contacts`/`interfaces` UUID-reference arrays — those point at
+ * records that must already exist in the target FOLIO tenant, which is a
+ * loading-time concern, not a building one. `categories` and
+ * `organizationTypes`, by contrast, are resolved automatically: wherever
+ * a category or organization-type *name* appears in the input (e.g. an
+ * address's category, an org's organizationTypes column), a fresh UUID
+ * is generated for it the first time it's seen and reused every time
+ * after — see {@see \Organizations\ReferenceRegistry}. That's why those
+ * two files always come out fully wired up, while contacts/interfaces
+ * are standalone objects the loading step must create and link itself.
+ *
+ * Credentials are the one exception among the "standalone" types: each
+ * interface record built here is given a client-generated `id`, and any
+ * credential built alongside it (from that same instance's `username`/
+ * `password` columns) is stamped with a matching `interfaceId` — so
+ * `interfaces.json` and `credentials.json` *are* wired to each other,
+ * even though neither is wired back into the organization.
+ *
+ * See \Organizations\RecordBuilder, \Organizations\Mapping\FieldMapper,
+ * \Organizations\Io\DelimitedFileReader, \Organizations\Io\ErrorLog,
+ * \Organizations\RecordFileImporter, and the schema classes under
+ * \Organizations\Schema for the field mapping/validation rules.
+ *
+ * One thing that IS different from the procedural ../build_organizations.php:
+ * this version supports multiple instances of a nested group (addresses,
+ * phoneNumbers, emails, urls, aliases, accounts) per organization, via
+ * `folio_field` entries like `addresses[2].city` in the mapping file —
+ * see FieldMapper::indicesFor(). The procedural script only ever builds
+ * one of each, and has no concept of contacts/interfaces/categories/
+ * organization types at all.
+ *
+ * Usage:
+ *   php bin/build-organizations --input=orgs.tsv [options]
+ *
+ * Options:
+ *   --input=PATH                    Delimited input file (required).
+ *   --output=PATH                   Organizations output file; defaults to stdout.
+ *   --contacts-output=PATH          Contacts output file (default: contacts.json
+ *                                   next to --output, or in the current directory).
+ *   --interfaces-output=PATH        Interfaces output file (default: interfaces.json, similarly).
+ *   --credentials-output=PATH       Interface credentials output file (default:
+ *                                   credentials.json, similarly).
+ *   --categories-output=PATH        Categories output file (default: categories.json, similarly).
+ *   --organization-types-output=PATH Organization types output file (default:
+ *                                   organization_types.json, similarly).
+ *   --mapping=PATH                  Field-mapping JSON file (default:
+ *                                   organization_field_mapping.json at the
+ *                                   project root — see FieldMapper).
+ *   --format=json|ndjson            Output format for all files (default: ndjson —
+ *                                   one JSON object per line, the form most
+ *                                   loading tools expect; "json" writes a single
+ *                                   JSON array of objects instead).
+ *   --delimiter=CHAR                Field delimiter (default: tab — the normal
+ *                                   delimiter for input files). Accepts "tab",
+ *                                   "pipe", "semicolon", "comma" as convenience names.
+ *   --enclosure=CHAR                Field quote/enclosure character (default: ").
+ *   --list-delimiter=STR            Delimiter used *within* a single cell for
+ *                                   multi-value fields (default: |).
+ *   --error-log=PATH                Error/validation log for this run — one file,
+ *                                   covering every phase (organizations, contacts,
+ *                                   interfaces, credentials), each in its own
+ *                                   "== section ==" (default: a fresh, timestamped
+ *                                   file under logs/ at the project root, created
+ *                                   automatically if that directory doesn't exist).
+ *   --folio-config=PATH             Optional FolioConfig INI file (okapiUrl,
+ *                                   tenant_id, username, password — see
+ *                                   phpFolioClient's FolioConfig). When given,
+ *                                   existing categories and organization types
+ *                                   are fetched from that FOLIO tenant first,
+ *                                   via GET /organizations-storage/categories
+ *                                   and GET /organizations-storage/organization-types,
+ *                                   and reused by name instead of generating a
+ *                                   new UUID for a name that already exists
+ *                                   there. Without this option (the default),
+ *                                   every category/organization-type name is
+ *                                   treated as new — nothing is checked, since
+ *                                   there's nothing to check it against. Also
+ *                                   used to look up the tenant's own configured
+ *                                   timezone (if any), so every timestamp this
+ *                                   run logs uses that instead of the server's
+ *                                   default — see determineTenantTimezone().
+ *   --help                          Show this message.
+ */
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Organizations\Casting\ValueCaster;
+use Organizations\Cli\Options;
+use Organizations\Io\DelimitedFileReader;
+use Organizations\Io\ErrorLog;
+use Organizations\Mapping\FieldMapper;
+use Organizations\RecordBuilder;
+use phpFolioClient\FolioAuth;
+use phpFolioClient\FolioConfig;
+use phpFolioClient\FolioClient;
+use Organizations\RecordFileImporter;
+use Organizations\ReferenceRegistry;
+use Organizations\Schema\ContactSchema;
+use Organizations\Schema\InterfaceCredentialSchema;
+use Organizations\Schema\InterfaceSchema;
+use Organizations\Schema\OrganizationSchema;
+use phpFolioClient\FolioUtils;
+
+const PROJECT_ROOT = __DIR__ . '/..';
+
+function printHelp(): void {
+    $source = file_get_contents(__FILE__);
+    if (preg_match('#/\*\*(.*?)\*/#s', (string) $source, $m)) {
+        foreach (explode("\n", $m[1]) as $line) {
+            echo ltrim(rtrim($line), " \t*") . "\n";
+        }
+    }
+}
+
+/**
+ * Build a FOLIO client from a `--folio-config` INI file — shared by
+ * {@see determineTenantTimezone()} and {@see seedRegistryFromFolio()} so
+ * both reuse the same connection/authentication rather than each making
+ * their own.
+ *
+ * @throws \RuntimeException If the config file is missing/malformed.
+ */
+function buildFolioClient(string $folioConfigPath): FolioClient {
+    $config = new FolioConfig($folioConfigPath);
+    $auth = new FolioAuth($config);
+    return new FolioClient($config, $auth, new FolioUtils());
+}
+
+/**
+ * Look up the FOLIO tenant's own configured timezone (the same setting
+ * FOLIO's UI itself uses to render dates/times), via the tenant's
+ * `localeSettings` configuration entry, so this run's log timestamps can
+ * reflect the tenant's local time instead of whatever timezone the
+ * server happens to be set to.
+ *
+ * Not every tenant has this configured, and it isn't worth failing the
+ * whole run over — any failure (no such config entry, malformed value,
+ * network/auth error) is swallowed here and reported as "not found"
+ * (null); a *fatal* connection problem still surfaces moments later,
+ * when {@see seedRegistryFromFolio()} makes its own request against the
+ * same client.
+ *
+ * @return A valid `DateTimeZone` identifier (e.g. `America/New_York`),
+ *         or null if none could be determined.
+ */
+function determineTenantTimezone(FolioClient $client): ?string {
+    try {
+        foreach ($client->get('/configurations/entries', 'module==ORG and configName==localeSettings') as $entry) {
+            $settings = json_decode((string) ($entry->value ?? ''), true);
+            $timezone = is_array($settings) ? ($settings['timezone'] ?? null) : null;
+            if (is_string($timezone) && in_array($timezone, \DateTimeZone::listIdentifiers(), true)) {
+                return $timezone;
+            }
+        }
+    } catch (\Throwable) {
+        // Couldn't determine it - fall through to null, same as "not configured".
+    }
+    return null;
+}
+
+/**
+ * Fetch existing categories and organization types from a live FOLIO
+ * tenant and seed the shared registry with them, so a name already
+ * present there resolves to its real UUID instead of a freshly
+ * generated one. What was found is written into the run's error log
+ * (not just stderr) — "already exists" is worth a permanent record, not
+ * just a console line that scrolls away.
+ *
+ * @throws \GuzzleHttp\Exception\GuzzleException If the tenant can't be
+ *         reached or authenticated against.
+ */
+function seedRegistryFromFolio(FolioClient $client, ReferenceRegistry $registry, ErrorLog $errorLog): void {
+    $errorLog->write('== existing reference data (from FOLIO) ==');
+
+    foreach ($client->getAll('/organizations-storage/categories') as $category) {
+        $registry->seed('category', $category->value, $category->id);
+    }
+    $categoryNames = $registry->getSeededNames('category');
+    $errorLog->write(sprintf(
+        'Found %d existing categor%s already in FOLIO%s',
+        count($categoryNames), count($categoryNames) === 1 ? 'y' : 'ies',
+        $categoryNames === [] ? '.' : ': ' . implode(', ', $categoryNames) . '.'
+    ));
+    fwrite(STDERR, sprintf("Seeded %d existing categor%s from FOLIO.\n", count($categoryNames), count($categoryNames) === 1 ? 'y' : 'ies'));
+
+    foreach ($client->getAll('/organizations-storage/organization-types') as $type) {
+        $registry->seed('organizationType', $type->name, $type->id);
+    }
+    $typeNames = $registry->getSeededNames('organizationType');
+    $errorLog->write(sprintf(
+        'Found %d existing organization type(s) already in FOLIO%s',
+        count($typeNames),
+        $typeNames === [] ? '.' : ': ' . implode(', ', $typeNames) . '.'
+    ));
+    $errorLog->write('');
+    fwrite(STDERR, sprintf("Seeded %d existing organization type(s) from FOLIO.\n", count($typeNames)));
+}
+
+/** Write a list of records to a path (or stdout) as json or ndjson. */
+function writeRecords(array $records, ?string $path, string $format): bool {
+    $handle = $path !== null ? fopen($path, 'w') : STDOUT;
+    if ($handle === false) {
+        return false;
+    }
+    if ($format === 'ndjson') {
+        foreach ($records as $record) {
+            fwrite($handle, json_encode($record, JSON_UNESCAPED_SLASHES) . "\n");
+        }
+    } else {
+        fwrite($handle, json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    }
+    if ($path !== null) {
+        fclose($handle);
+    }
+    return true;
+}
+
+/**
+ * Describe one record's position within an output file, phrased
+ * appropriately for the format it was actually written in: `ndjson`
+ * puts one record per line, so "line N" is literal; a single `json`
+ * array isn't line-per-record (see {@see writeRecords()}), so that case
+ * is phrased as "record #N" instead.
+ */
+function formatRecordPosition(int $zeroBasedIndex, string $format): string {
+    $position = $zeroBasedIndex + 1;
+    return $format === 'ndjson' ? "line $position" : "record #$position";
+}
+
+/**
+ * Log a note for every record (by its position in `$outputPath`, per
+ * {@see formatRecordPosition()}) whose origin row number appears in
+ * `$rejectedRowNumbers` — i.e. it was built successfully even though
+ * the organization on that same row was rejected. Contacts and
+ * interfaces/credentials are independent top-level records (see the
+ * class docblock on {@see \Organizations\RecordBuilder}), so this is
+ * expected behavior, not an error — logged as a note, not folded into
+ * `$hadErrors`.
+ *
+ * @param $rowNumbers Each built record's origin row number, in the same
+ *                    order as the records themselves — see
+ *                    {@see buildChildRecords()}/{@see buildInterfacesAndCredentials()}.
+ */
+function logOrphanNotes(ErrorLog $errorLog, string $label, string $outputPath, array $rowNumbers, array $rejectedRowNumbers, string $format): void {
+    if ($rejectedRowNumbers === []) {
+        return;
+    }
+    $rejectedSet = array_fill_keys($rejectedRowNumbers, true);
+    $fileName = basename($outputPath);
+    $article = in_array($label[0], ['a', 'e', 'i', 'o', 'u'], true) ? 'an' : 'a';
+    foreach ($rowNumbers as $i => $rowNum) {
+        if (isset($rejectedSet[$rowNum])) {
+            $errorLog->write(sprintf(
+                'Note: %s %s is %s %s built from row %d, whose organization was rejected above.',
+                $fileName, formatRecordPosition($i, $format), $article, $label, $rowNum
+            ));
+        }
+    }
+}
+
+/**
+ * Same idea as {@see logOrphanNotes()}, but for categories/organization
+ * types: since a name resolves to the same UUID everywhere it's seen
+ * (see {@see \Organizations\ReferenceRegistry}), one entry can be
+ * referenced from more than one row — by an organization's own fields,
+ * and (categories only) by an independently-built contact's fields too
+ * — so it's only truly orphaned if *none* of its referencing rows
+ * appears in `$survivingRowNumbers`. A category referenced by even one
+ * accepted organization, or one successfully-built contact (regardless
+ * of whether that contact's own organization was rejected — contacts
+ * are independent, per {@see logOrphanNotes()}), is still needed.
+ *
+ * @param $records             The namespace's dumped records (from
+ *                             {@see \Organizations\ReferenceRegistry::getRecords()}),
+ *                             in the same order they were written to `$outputPath`.
+ * @param $nameField           Schema property the resolved name is
+ *                             stored under (`value` for categories,
+ *                             `name` for organization types).
+ * @param $survivingRowNumbers Row numbers of every record that actually
+ *                             made it into some output file and can
+ *                             reference this namespace — accepted
+ *                             organizations for `organizationType`;
+ *                             accepted organizations *and*
+ *                             successfully-built contacts for `category`.
+ */
+function logOrphanReferenceNotes(
+    ErrorLog $errorLog,
+    ReferenceRegistry $registry,
+    string $namespace,
+    string $nameField,
+    array $records,
+    string $outputPath,
+    array $survivingRowNumbers,
+    string $format
+): void {
+    $survivingSet = array_fill_keys($survivingRowNumbers, true);
+    $fileName = basename($outputPath);
+    foreach ($records as $i => $record) {
+        $referencingRows = $registry->getReferencingRows($namespace, (string) $record[$nameField]);
+        if ($referencingRows === []) {
+            continue; // nothing tracked - can't tell, so don't guess
+        }
+        $stillNeeded = false;
+        foreach ($referencingRows as $rowNum) {
+            if (isset($survivingSet[$rowNum])) {
+                $stillNeeded = true;
+                break;
+            }
+        }
+        if (!$stillNeeded) {
+            $errorLog->write(sprintf(
+                "Note: %s %s ('%s') was only referenced by rejected organization row(s) %s above.",
+                $fileName, formatRecordPosition($i, $format), $record[$nameField],
+                implode(', ', array_unique($referencingRows))
+            ));
+        }
+    }
+}
+
+/**
+ * Build every populated instance of a top-level multi-instance child
+ * record (contacts, interfaces) across every row of the input file.
+ * Unlike organizations (exactly one record per row), a row can yield
+ * zero, one, or several of these — one per populated
+ * `{$schemaKey}[N].*` instance.
+ *
+ * Writes this section's validation errors into an already-open error
+ * log (not opened or closed here — see {@see \Organizations\RecordFileImporter}
+ * for why: one bin/build-organizations run shares a single log file
+ * across every build phase).
+ *
+ * @return array{0: list<array>, 1: list<int>, 2: bool} [built records, each record's origin row number (same order), hadErrors]
+ */
+function buildChildRecords(
+    string $inputPath,
+    string $delimiter,
+    string $enclosure,
+    FieldMapper $mapper,
+    string $schemaKey,
+    string $schemaClass,
+    ValueCaster $caster,
+    FolioUtils $folioUtils,
+    string $listDelimiter,
+    ?ReferenceRegistry $registry,
+    ErrorLog $errorLog
+): array {
+    $errorLog->write("== {$schemaKey} ==");
+
+    $reader = new DelimitedFileReader($inputPath, $delimiter, $enclosure);
+    $reader->open();
+
+    $records = [];
+    $recordRowNumbers = [];
+    $hadErrors = false;
+    $indices = $mapper->indicesFor($schemaKey);
+
+    foreach ($reader->rows() as $rowNum => $rowAssoc) {
+        foreach ($indices as $index) {
+            $subMapper = $mapper->forInstance($schemaKey, $index);
+            $builder = new RecordBuilder($subMapper, $caster, $folioUtils, $schemaClass, $listDelimiter, $registry);
+            $result = $builder->build($rowAssoc, $rowNum);
+            if (empty($result->getRecord())) {
+                continue; // this instance doesn't apply to this row
+            }
+            if ($result->hasErrors()) {
+                $hadErrors = true;
+                foreach ($result->getErrors() as $error) {
+                    $errorLog->write("$error ($schemaKey\[$index\])");
+                }
+                $errorLog->write("Row $rowNum, $schemaKey\[$index\] skipped due to validation errors.");
+                $errorLog->write('');
+                continue;
+            }
+            $records[] = $result->getRecord();
+            $recordRowNumbers[] = $rowNum;
+        }
+    }
+    $reader->close();
+
+    $errorLog->write(sprintf('Built %d %s record(s).', count($records), $schemaKey));
+    $errorLog->write('');
+
+    return [$records, $recordRowNumbers, $hadErrors];
+}
+
+/**
+ * Build every populated interface instance across every row, same as
+ * {@see buildChildRecords()} for `interfaces`, but also: assigns each
+ * interface a client-generated `id`, and — if that same instance's
+ * `username`/`password` columns are both populated — builds a matching
+ * {@see InterfaceCredentialSchema} record stamped with that interface's
+ * `id` as its `interfaceId`.
+ *
+ * Writes this section's validation errors into an already-open error
+ * log (not opened or closed here — see {@see buildChildRecords()}).
+ *
+ * @return array{0: list<array>, 1: list<int>, 2: list<array>, 3: list<int>, 4: bool}
+ *         [interfaces, each interface's origin row number (same order),
+ *          credentials, each credential's origin row number (same order), hadErrors]
+ */
+function buildInterfacesAndCredentials(
+    string $inputPath,
+    string $delimiter,
+    string $enclosure,
+    FieldMapper $mapper,
+    ValueCaster $caster,
+    FolioUtils $folioUtils,
+    string $listDelimiter,
+    ErrorLog $errorLog
+): array {
+    $errorLog->write('== interfaces ==');
+
+    $reader = new DelimitedFileReader($inputPath, $delimiter, $enclosure);
+    $reader->open();
+
+    $interfaces = [];
+    $interfaceRowNumbers = [];
+    $credentials = [];
+    $credentialRowNumbers = [];
+    $hadErrors = false;
+    $indices = $mapper->indicesFor('interfaces');
+
+    foreach ($reader->rows() as $rowNum => $rowAssoc) {
+        foreach ($indices as $index) {
+            $subMapper = $mapper->forInstance('interfaces', $index);
+            $builder = new RecordBuilder($subMapper, $caster, $folioUtils, InterfaceSchema::class, $listDelimiter);
+            $result = $builder->build($rowAssoc, $rowNum);
+            if (empty($result->getRecord())) {
+                continue; // this instance doesn't apply to this row
+            }
+            if ($result->hasErrors()) {
+                $hadErrors = true;
+                foreach ($result->getErrors() as $error) {
+                    $errorLog->write("$error (interfaces[$index])");
+                }
+                $errorLog->write("Row $rowNum, interfaces[$index] skipped due to validation errors.");
+                $errorLog->write('');
+                continue;
+            }
+
+            $interfaceRecord = $result->getRecord();
+            $interfaceId = ReferenceRegistry::generateUuidV4();
+            $interfaceRecord['id'] = $interfaceId;
+            $interfaces[] = $interfaceRecord;
+            $interfaceRowNumbers[] = $rowNum;
+
+            $credentialBuilder = new RecordBuilder($subMapper, $caster, $folioUtils, InterfaceCredentialSchema::class, $listDelimiter);
+            $credentialResult = $credentialBuilder->build($rowAssoc, $rowNum);
+            if (empty($credentialResult->getRecord())) {
+                continue; // no username/password mapped for this instance
+            }
+            if ($credentialResult->hasErrors()) {
+                $hadErrors = true;
+                foreach ($credentialResult->getErrors() as $error) {
+                    $errorLog->write("$error (interfaces[$index] credentials)");
+                }
+                $errorLog->write("Row $rowNum, interfaces[$index] credentials skipped due to validation errors.");
+                $errorLog->write('');
+                continue;
+            }
+
+            $credential = $credentialResult->getRecord();
+            $credential['id'] = ReferenceRegistry::generateUuidV4();
+            $credential['interfaceId'] = $interfaceId;
+            $credentials[] = $credential;
+            $credentialRowNumbers[] = $rowNum;
+        }
+    }
+    $reader->close();
+
+    $errorLog->write(sprintf('Built %d interface(s) and %d credential(s).', count($interfaces), count($credentials)));
+    $errorLog->write('');
+
+    return [$interfaces, $interfaceRowNumbers, $credentials, $credentialRowNumbers, $hadErrors];
+}
+
+function main(array $argv): int {
+    $startTime = microtime(true);
+    $options = Options::parse($argv);
+
+    if (isset($options['help'])) {
+        printHelp();
+        return 0;
+    }
+
+    if (empty($options['input']) || $options['input'] === true) {
+        fwrite(STDERR, "Error: --input=PATH is required.\n\n");
+        printHelp();
+        return 1;
+    }
+
+    $inputPath = (string) $options['input'];
+    $delimiter = Options::resolveDelimiter((string) ($options['delimiter'] ?? 'tab'));
+    $enclosure = (string) ($options['enclosure'] ?? '"');
+    $listDelimiter = Options::resolveDelimiter((string) ($options['list-delimiter'] ?? '|'));
+    $format = (string) ($options['format'] ?? 'ndjson');
+    // Default output filenames always end in .json, regardless of --format —
+    // the extension names the file type, not the line-vs-array framing of its content.
+    $extension = 'json';
+
+    $outputPath = isset($options['output']) && $options['output'] !== true ? (string) $options['output'] : null;
+    $outputDir = $outputPath !== null ? dirname($outputPath) : getcwd();
+
+    $contactsOutputPath = isset($options['contacts-output']) && $options['contacts-output'] !== true
+        ? (string) $options['contacts-output'] : "$outputDir/contacts.$extension";
+    $interfacesOutputPath = isset($options['interfaces-output']) && $options['interfaces-output'] !== true
+        ? (string) $options['interfaces-output'] : "$outputDir/interfaces.$extension";
+    $credentialsOutputPath = isset($options['credentials-output']) && $options['credentials-output'] !== true
+        ? (string) $options['credentials-output'] : "$outputDir/credentials.$extension";
+    $categoriesOutputPath = isset($options['categories-output']) && $options['categories-output'] !== true
+        ? (string) $options['categories-output'] : "$outputDir/categories.$extension";
+    $organizationTypesOutputPath = isset($options['organization-types-output']) && $options['organization-types-output'] !== true
+        ? (string) $options['organization-types-output'] : "$outputDir/organization_types.$extension";
+
+    $mappingPath = isset($options['mapping']) && $options['mapping'] !== true
+        ? (string) $options['mapping']
+        : PROJECT_ROOT . '/organization_field_mapping.json';
+    $errorLogPath = isset($options['error-log']) && $options['error-log'] !== true
+        ? (string) $options['error-log']
+        : ErrorLog::defaultPathFor($inputPath, PROJECT_ROOT . '/logs');
+    $folioConfigPath = isset($options['folio-config']) && $options['folio-config'] !== true
+        ? (string) $options['folio-config']
+        : null;
+
+    if (!in_array($format, ['json', 'ndjson'], true)) {
+        fwrite(STDERR, "Error: --format must be 'json' or 'ndjson'\n");
+        return 1;
+    }
+    if (strlen($delimiter) !== 1 || strlen($enclosure) !== 1) {
+        fwrite(STDERR, "Error: --delimiter and --enclosure must each resolve to a single character\n");
+        return 1;
+    }
+
+    try {
+        $mapper = FieldMapper::fromFile($mappingPath);
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        return 1;
+    }
+
+    $caster = new ValueCaster();
+    $folioUtils = new FolioUtils();
+    $registry = new ReferenceRegistry();
+    $hadErrors = false;
+
+    // If a live tenant is reachable, prefer its own configured timezone
+    // for every timestamp this run logs — including "Run started" below —
+    // over the server's default; see determineTenantTimezone(). Built
+    // before the log opens so that line is already correct, not just the
+    // ones that come after.
+    $folioClient = null;
+    $tenantTimezone = null;
+    if ($folioConfigPath !== null) {
+        try {
+            $folioClient = buildFolioClient($folioConfigPath);
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, 'Error: could not set up FOLIO connection: ' . $e->getMessage() . "\n");
+            return 1;
+        }
+        $tenantTimezone = determineTenantTimezone($folioClient);
+        if ($tenantTimezone !== null) {
+            date_default_timezone_set($tenantTimezone);
+        }
+    }
+
+    // One log file for the whole run — every phase below writes its own
+    // "== section ==" block into it, so all of a run's problems (and any
+    // reference data confirmed to already exist) live in one place
+    // instead of being scattered across several files.
+    $errorLog = new ErrorLog($errorLogPath);
+    try {
+        $errorLog->open();
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        return 1;
+    }
+    $errorLog->write(sprintf('Run started %s', date('c')));
+    $errorLog->write($tenantTimezone !== null
+        ? "Times in this log are in the FOLIO tenant's timezone: {$tenantTimezone}."
+        : sprintf("Times in this log are in this server's default timezone: %s.", date_default_timezone_get()));
+    $errorLog->write('');
+
+    if ($folioClient !== null) {
+        try {
+            seedRegistryFromFolio($folioClient, $registry, $errorLog);
+        } catch (\Throwable $e) {
+            fwrite(STDERR, 'Error: could not fetch existing reference data from FOLIO: ' . $e->getMessage() . "\n");
+            $errorLog->close();
+            return 1;
+        }
+    }
+
+    // --- organizations (one record per row) --------------------------------
+    $orgBuilder = new RecordBuilder($mapper, $caster, $folioUtils, OrganizationSchema::class, $listDelimiter, $registry);
+    $orgReader = new DelimitedFileReader($inputPath, $delimiter, $enclosure);
+    $orgImporter = new RecordFileImporter($orgBuilder);
+
+    try {
+        $orgResult = $orgImporter->import($orgReader, $errorLog, 'organizations');
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        $errorLog->close();
+        return 1;
+    }
+    $hadErrors = $hadErrors || $orgResult->hadErrors();
+
+    if (!writeRecords($orgResult->getRecords(), $outputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$outputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d organization(s).\n", count($orgResult->getRecords())));
+
+    $rejectedOrgRowNumbers = $orgResult->getRejectedRowNumbers();
+
+    // --- contacts (0+ records per row) --------------------------------------
+    try {
+        [$contactRecords, $contactRowNumbers, $contactsHadErrors] = buildChildRecords(
+            $inputPath, $delimiter, $enclosure, $mapper, 'contacts', ContactSchema::class,
+            $caster, $folioUtils, $listDelimiter, $registry, $errorLog
+        );
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        $errorLog->close();
+        return 1;
+    }
+    $hadErrors = $hadErrors || $contactsHadErrors;
+
+    if (!writeRecords($contactRecords, $contactsOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$contactsOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d contact(s).\n", count($contactRecords)));
+    logOrphanNotes($errorLog, 'contact', $contactsOutputPath, $contactRowNumbers, $rejectedOrgRowNumbers, $format);
+
+    // --- interfaces (0+ records per row) + their credentials ----------------
+    try {
+        [$interfaceRecords, $interfaceRowNumbers, $credentialRecords, $credentialRowNumbers, $interfacesHadErrors] = buildInterfacesAndCredentials(
+            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter, $errorLog
+        );
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        $errorLog->close();
+        return 1;
+    }
+    $hadErrors = $hadErrors || $interfacesHadErrors;
+
+    if (!writeRecords($interfaceRecords, $interfacesOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$interfacesOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d interface(s).\n", count($interfaceRecords)));
+    logOrphanNotes($errorLog, 'interface', $interfacesOutputPath, $interfaceRowNumbers, $rejectedOrgRowNumbers, $format);
+
+    if (!writeRecords($credentialRecords, $credentialsOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$credentialsOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d interface credential(s).\n", count($credentialRecords)));
+    logOrphanNotes($errorLog, 'interface credential', $credentialsOutputPath, $credentialRowNumbers, $rejectedOrgRowNumbers, $format);
+
+    // --- categories and organization types (derived from the shared registry) ---
+    $categories = $registry->getRecords('category', 'value');
+    if (!writeRecords($categories, $categoriesOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$categoriesOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d categor%s.\n", count($categories), count($categories) === 1 ? 'y' : 'ies'));
+    // A category can also be reached via a contact's own fields, so a
+    // row surviving *either* way keeps the categories it references -
+    // see logOrphanReferenceNotes()'s docblock.
+    $survivingRowsForCategories = array_unique(array_merge($orgResult->getAcceptedRowNumbers(), $contactRowNumbers));
+    logOrphanReferenceNotes($errorLog, $registry, 'category', 'value', $categories, $categoriesOutputPath, $survivingRowsForCategories, $format);
+
+    $organizationTypes = $registry->getRecords('organizationType', 'name', ['status' => 'Active']);
+    if (!writeRecords($organizationTypes, $organizationTypesOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$organizationTypesOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d organization type(s).\n", count($organizationTypes)));
+    // Only an organization's own field references organizationType, so
+    // the only rows that keep an entry alive are accepted organizations.
+    logOrphanReferenceNotes($errorLog, $registry, 'organizationType', 'name', $organizationTypes, $organizationTypesOutputPath, $orgResult->getAcceptedRowNumbers(), $format);
+
+    $errorLog->write(sprintf(
+        'Run complete: %d organization(s), %d contact(s), %d interface(s), %d credential(s), %d categor%s, %d organization type(s).',
+        count($orgResult->getRecords()), count($contactRecords), count($interfaceRecords), count($credentialRecords),
+        count($categories), count($categories) === 1 ? 'y' : 'ies', count($organizationTypes)
+    ));
+    $endTime = microtime(true);
+    $errorLog->write(sprintf('Run ended %s', date('c')));
+    $errorLog->write(sprintf('Elapsed time: %.2f seconds', $endTime - $startTime));
+    $errorLog->close();
+
+    if ($hadErrors) {
+        fwrite(STDERR, "Some rows were skipped due to validation errors — see: $errorLogPath\n");
+    }
+
+    return $hadErrors ? 1 : 0;
+}
+
+exit(main($argv));

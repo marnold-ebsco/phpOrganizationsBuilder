@@ -1,0 +1,22 @@
+# Composer
+/vendor/
+composer.phar
+
+# PHPUnit
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Local run output (logs, and this project's own generated output
+# directories) - never intended to be committed, just build artifacts.
+/logs/
+/output_alt/
+/alt_output/
+/out_orig/
+/out_alt/
+
+# FOLIO connection config - contains credentials, never commit one.
+*.ini
+
+# OS cruft
+.DS_Store
+Thumbs.db

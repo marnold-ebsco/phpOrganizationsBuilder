@@ -1,0 +1,1782 @@
+{
+    "data": [
+        {
+            "folio_field": "id",
+            "legacy_field": "id",
+            "value": "",
+            "description": "The unique UUID for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "name",
+            "legacy_field": "name",
+            "value": "",
+            "description": "The name of this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "code",
+            "legacy_field": "code",
+            "value": "",
+            "description": "The code for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "status",
+            "legacy_field": "status",
+            "value": "",
+            "description": "The status of this organization (Active, Inactive, or Pending)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "description",
+            "legacy_field": "description",
+            "value": "",
+            "description": "The description for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "exportToAccounting",
+            "legacy_field": "exportToAccounting",
+            "value": "",
+            "description": "Keeps the invoice from being fed into the batch accounting process (default false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "language",
+            "legacy_field": "language",
+            "value": "",
+            "description": "The language for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "isVendor",
+            "legacy_field": "isVendor",
+            "value": "",
+            "description": "Used to indicate that this organization is also a vendor (default false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "isDonor",
+            "legacy_field": "isDonor",
+            "value": "",
+            "description": "Used to designate whether this organization is a donor (default false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "sanCode",
+            "legacy_field": "sanCode",
+            "value": "",
+            "description": "The SAN code for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "erpCode",
+            "legacy_field": "erpCode",
+            "value": "",
+            "description": "The ERP code for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "paymentMethod",
+            "legacy_field": "paymentMethod",
+            "value": "",
+            "description": "The payment method for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accessProvider",
+            "legacy_field": "accessProvider",
+            "value": "",
+            "description": "The access provider setting for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "governmental",
+            "legacy_field": "governmental",
+            "value": "",
+            "description": "The setting to mark this organization as governmental",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "licensor",
+            "legacy_field": "licensor",
+            "value": "",
+            "description": "The setting to mark this organization as a licensor",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "materialSupplier",
+            "legacy_field": "materialSupplier",
+            "value": "",
+            "description": "The setting to mark this organization as a material supplier",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "taxId",
+            "legacy_field": "taxId",
+            "value": "",
+            "description": "The tax ID for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "liableForVat",
+            "legacy_field": "liableForVat",
+            "value": "",
+            "description": "The setting to mark this organization liable to collect VAT",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "taxPercentage",
+            "legacy_field": "taxPercentage",
+            "value": "",
+            "description": "The tax percentage value for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "claimingInterval",
+            "legacy_field": "claimingInterval",
+            "value": "",
+            "description": "The claim interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "discountPercent",
+            "legacy_field": "discountPercent",
+            "value": "",
+            "description": "The discount percentage for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "expectedActivationInterval",
+            "legacy_field": "expectedActivationInterval",
+            "value": "",
+            "description": "The expected activation interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "expectedInvoiceInterval",
+            "legacy_field": "expectedInvoiceInterval",
+            "value": "",
+            "description": "The expected invoice interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "expectedReceiptInterval",
+            "legacy_field": "expectedReceiptInterval",
+            "value": "",
+            "description": "The expected receipt interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "renewalActivationInterval",
+            "legacy_field": "renewalActivationInterval",
+            "value": "",
+            "description": "The renewal activation interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "subscriptionInterval",
+            "legacy_field": "subscriptionInterval",
+            "value": "",
+            "description": "The subscription interval (in days) for this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "organizationTypes",
+            "legacy_field": "organizationTypes",
+            "value": "",
+            "description": "A list of organization type UUIDs assigned to this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "acqUnitIds",
+            "legacy_field": "acqUnitIds",
+            "value": "",
+            "description": "Acquisition unit UUIDs associated with this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "vendorCurrencies",
+            "legacy_field": "vendorCurrencies",
+            "value": "",
+            "description": "The list of currencies used by this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts",
+            "legacy_field": "contacts",
+            "value": "",
+            "description": "An array of contact record UUIDs",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "privilegedContacts",
+            "legacy_field": "privilegedContacts",
+            "value": "",
+            "description": "An array of privileged contact record UUIDs",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces",
+            "legacy_field": "interfaces",
+            "value": "",
+            "description": "The list of interface UUIDs assigned to this organization",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases.value",
+            "legacy_field": "alias_value",
+            "value": "",
+            "description": "The unique name of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases.description",
+            "legacy_field": "alias_description",
+            "value": "",
+            "description": "The description of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[2].value",
+            "legacy_field": "alias2_value",
+            "value": "",
+            "description": "The unique name of this organization's second alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[2].description",
+            "legacy_field": "alias2_description",
+            "value": "",
+            "description": "The description of this organization's second alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[3].value",
+            "legacy_field": "alias3_value",
+            "value": "",
+            "description": "The unique name of this organization's third alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[3].description",
+            "legacy_field": "alias3_description",
+            "value": "",
+            "description": "The description of this organization's third alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.addressLine1",
+            "legacy_field": "address_addressLine1",
+            "value": "",
+            "description": "The first line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.addressLine2",
+            "legacy_field": "address_addressLine2",
+            "value": "",
+            "description": "The second line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.city",
+            "legacy_field": "address_city",
+            "value": "",
+            "description": "The city for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.stateRegion",
+            "legacy_field": "address_stateRegion",
+            "value": "",
+            "description": "The state or region for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.zipCode",
+            "legacy_field": "address_zipCode",
+            "value": "",
+            "description": "The zip code for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.country",
+            "legacy_field": "address_country",
+            "value": "",
+            "description": "The country for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.language",
+            "legacy_field": "address_language",
+            "value": "",
+            "description": "The language for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses.categories",
+            "legacy_field": "address_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].addressLine1",
+            "legacy_field": "address2_addressLine1",
+            "value": "",
+            "description": "The first line of this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].addressLine2",
+            "legacy_field": "address2_addressLine2",
+            "value": "",
+            "description": "The second line of this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].city",
+            "legacy_field": "address2_city",
+            "value": "",
+            "description": "The city for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].stateRegion",
+            "legacy_field": "address2_stateRegion",
+            "value": "",
+            "description": "The state or region for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].zipCode",
+            "legacy_field": "address2_zipCode",
+            "value": "",
+            "description": "The zip code for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].country",
+            "legacy_field": "address2_country",
+            "value": "",
+            "description": "The country for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].language",
+            "legacy_field": "address2_language",
+            "value": "",
+            "description": "The language for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].categories",
+            "legacy_field": "address2_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization's second address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[2].isPrimary",
+            "legacy_field": "address2_isPrimary",
+            "value": "",
+            "description": "Whether this organization's second address is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers.phoneNumber",
+            "legacy_field": "phone_phoneNumber",
+            "value": "",
+            "description": "The entire sequence of digits for this phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers.type",
+            "legacy_field": "phone_type",
+            "value": "",
+            "description": "The type of this phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers.language",
+            "legacy_field": "phone_language",
+            "value": "",
+            "description": "The language for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers.categories",
+            "legacy_field": "phone_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[2].phoneNumber",
+            "legacy_field": "phone2_phoneNumber",
+            "value": "",
+            "description": "The entire sequence of digits for this organization's second phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[2].type",
+            "legacy_field": "phone2_type",
+            "value": "",
+            "description": "The type of this organization's second phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[2].language",
+            "legacy_field": "phone2_language",
+            "value": "",
+            "description": "The language for this organization's second phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[2].categories",
+            "legacy_field": "phone2_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization's second phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[3].phoneNumber",
+            "legacy_field": "phone3_phoneNumber",
+            "value": "",
+            "description": "The entire sequence of digits for this organization's third phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[3].type",
+            "legacy_field": "phone3_type",
+            "value": "",
+            "description": "The type of this organization's third phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[3].language",
+            "legacy_field": "phone3_language",
+            "value": "",
+            "description": "The language for this organization's third phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[3].categories",
+            "legacy_field": "phone3_categories",
+            "value": "",
+            "description": "The category name(s) for this organization's third phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails.value",
+            "legacy_field": "email_value",
+            "value": "",
+            "description": "The value for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails.description",
+            "legacy_field": "email_description",
+            "value": "",
+            "description": "The description for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails.language",
+            "legacy_field": "email_language",
+            "value": "",
+            "description": "The language for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails.categories",
+            "legacy_field": "email_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[2].value",
+            "legacy_field": "email2_value",
+            "value": "",
+            "description": "The value for this organization's second email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[2].description",
+            "legacy_field": "email2_description",
+            "value": "",
+            "description": "The description for this organization's second email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[2].language",
+            "legacy_field": "email2_language",
+            "value": "",
+            "description": "The language for this organization's second email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[2].categories",
+            "legacy_field": "email2_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization's second email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[2].isPrimary",
+            "legacy_field": "email2_isPrimary",
+            "value": "",
+            "description": "Whether this organization's second email is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[3].value",
+            "legacy_field": "email3_value",
+            "value": "",
+            "description": "The value for this organization's third email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[3].description",
+            "legacy_field": "email3_description",
+            "value": "",
+            "description": "The description for this organization's third email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls.value",
+            "legacy_field": "url_value",
+            "value": "",
+            "description": "The value for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls.description",
+            "legacy_field": "url_description",
+            "value": "",
+            "description": "The description for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls.language",
+            "legacy_field": "url_language",
+            "value": "",
+            "description": "The language for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls.notes",
+            "legacy_field": "url_notes",
+            "value": "",
+            "description": "The notes for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls.categories",
+            "legacy_field": "url_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].value",
+            "legacy_field": "url2_value",
+            "value": "",
+            "description": "The value for this organization's second URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].description",
+            "legacy_field": "url2_description",
+            "value": "",
+            "description": "The description for this organization's second URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].language",
+            "legacy_field": "url2_language",
+            "value": "",
+            "description": "The language for this organization's second URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].notes",
+            "legacy_field": "url2_notes",
+            "value": "",
+            "description": "The notes for this organization's second URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].categories",
+            "legacy_field": "url2_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization's second URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[2].isPrimary",
+            "legacy_field": "url2_isPrimary",
+            "value": "",
+            "description": "Whether this organization's second URL is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].name",
+            "legacy_field": "account1_name",
+            "value": "",
+            "description": "The unique name of this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].accountNo",
+            "legacy_field": "account1_accountNo",
+            "value": "",
+            "description": "The unique number of this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].description",
+            "legacy_field": "account1_description",
+            "value": "",
+            "description": "The description of this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].appSystemNo",
+            "legacy_field": "account1_appSystemNo",
+            "value": "",
+            "description": "The accounting system code for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].paymentMethod",
+            "legacy_field": "account1_paymentMethod",
+            "value": "",
+            "description": "The method of payment for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].accountStatus",
+            "legacy_field": "account1_accountStatus",
+            "value": "",
+            "description": "The status of this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].contactInfo",
+            "legacy_field": "account1_contactInfo",
+            "value": "",
+            "description": "The contact info for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].libraryCode",
+            "legacy_field": "account1_libraryCode",
+            "value": "",
+            "description": "The library code for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].libraryEdiCode",
+            "legacy_field": "account1_libraryEdiCode",
+            "value": "",
+            "description": "The EDI code for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[1].notes",
+            "legacy_field": "account1_notes",
+            "value": "",
+            "description": "The notes for this organization's first account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].name",
+            "legacy_field": "account2_name",
+            "value": "",
+            "description": "The unique name of this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].accountNo",
+            "legacy_field": "account2_accountNo",
+            "value": "",
+            "description": "The unique number of this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].description",
+            "legacy_field": "account2_description",
+            "value": "",
+            "description": "The description of this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].appSystemNo",
+            "legacy_field": "account2_appSystemNo",
+            "value": "",
+            "description": "The accounting system code for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].paymentMethod",
+            "legacy_field": "account2_paymentMethod",
+            "value": "",
+            "description": "The method of payment for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].accountStatus",
+            "legacy_field": "account2_accountStatus",
+            "value": "",
+            "description": "The status of this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].contactInfo",
+            "legacy_field": "account2_contactInfo",
+            "value": "",
+            "description": "The contact info for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].libraryCode",
+            "legacy_field": "account2_libraryCode",
+            "value": "",
+            "description": "The library code for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].libraryEdiCode",
+            "legacy_field": "account2_libraryEdiCode",
+            "value": "",
+            "description": "The EDI code for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "accounts[2].notes",
+            "legacy_field": "account2_notes",
+            "value": "",
+            "description": "The notes for this organization's second account",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].firstName",
+            "legacy_field": "contact1_firstName",
+            "value": "",
+            "description": "The first name of this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].lastName",
+            "legacy_field": "contact1_lastName",
+            "value": "",
+            "description": "The last name of this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].prefix",
+            "legacy_field": "contact1_prefix",
+            "value": "",
+            "description": "The prefix for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].language",
+            "legacy_field": "contact1_language",
+            "value": "",
+            "description": "The preferred language for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].notes",
+            "legacy_field": "contact1_notes",
+            "value": "",
+            "description": "The notes for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].inactive",
+            "legacy_field": "contact1_inactive",
+            "value": "",
+            "description": "Whether this organization's first contact person is no longer active",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].categories",
+            "legacy_field": "contact1_categories",
+            "value": "",
+            "description": "The category name(s) for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].emails.value",
+            "legacy_field": "contact1_email",
+            "value": "",
+            "description": "The email address for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].emails.description",
+            "legacy_field": "contact1_emailDescription",
+            "value": "",
+            "description": "The email description for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[1].phoneNumbers.phoneNumber",
+            "legacy_field": "contact1_phone",
+            "value": "",
+            "description": "The phone number for this organization's first contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].firstName",
+            "legacy_field": "contact2_firstName",
+            "value": "",
+            "description": "The first name of this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].lastName",
+            "legacy_field": "contact2_lastName",
+            "value": "",
+            "description": "The last name of this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].prefix",
+            "legacy_field": "contact2_prefix",
+            "value": "",
+            "description": "The prefix for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].language",
+            "legacy_field": "contact2_language",
+            "value": "",
+            "description": "The preferred language for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].notes",
+            "legacy_field": "contact2_notes",
+            "value": "",
+            "description": "The notes for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].inactive",
+            "legacy_field": "contact2_inactive",
+            "value": "",
+            "description": "Whether this organization's second contact person is no longer active",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].categories",
+            "legacy_field": "contact2_categories",
+            "value": "",
+            "description": "The category name(s) for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].emails.value",
+            "legacy_field": "contact2_email",
+            "value": "",
+            "description": "The email address for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].emails.description",
+            "legacy_field": "contact2_emailDescription",
+            "value": "",
+            "description": "The email description for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "contacts[2].phoneNumbers.phoneNumber",
+            "legacy_field": "contact2_phone",
+            "value": "",
+            "description": "The phone number for this organization's second contact person",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].name",
+            "legacy_field": "interface1_name",
+            "value": "",
+            "description": "The name of this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].type",
+            "legacy_field": "interface1_type",
+            "value": "",
+            "description": "The list of type classifications for this organization's first interface (Admin, End user, Reports, Orders, Invoices, and/or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].uri",
+            "legacy_field": "interface1_uri",
+            "value": "",
+            "description": "The URI of this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].notes",
+            "legacy_field": "interface1_notes",
+            "value": "",
+            "description": "The notes for this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].available",
+            "legacy_field": "interface1_available",
+            "value": "",
+            "description": "The availability setting for this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].deliveryMethod",
+            "legacy_field": "interface1_deliveryMethod",
+            "value": "",
+            "description": "The delivery method for this organization's first interface (Online, FTP, Email, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].statisticsFormat",
+            "legacy_field": "interface1_statisticsFormat",
+            "value": "",
+            "description": "The format of the statistics for this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].locallyStored",
+            "legacy_field": "interface1_locallyStored",
+            "value": "",
+            "description": "The locally stored location of this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].onlineLocation",
+            "legacy_field": "interface1_onlineLocation",
+            "value": "",
+            "description": "The online location for this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].statisticsNotes",
+            "legacy_field": "interface1_statisticsNotes",
+            "value": "",
+            "description": "The notes regarding the statistics for this organization's first interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].username",
+            "legacy_field": "interface1_username",
+            "value": "",
+            "description": "The login username for this organization's first interface (builds an interfaceCredential record alongside it)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[1].password",
+            "legacy_field": "interface1_password",
+            "value": "",
+            "description": "The login password for this organization's first interface (builds an interfaceCredential record alongside it)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].name",
+            "legacy_field": "interface2_name",
+            "value": "",
+            "description": "The name of this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].type",
+            "legacy_field": "interface2_type",
+            "value": "",
+            "description": "The list of type classifications for this organization's second interface (Admin, End user, Reports, Orders, Invoices, and/or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].uri",
+            "legacy_field": "interface2_uri",
+            "value": "",
+            "description": "The URI of this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].notes",
+            "legacy_field": "interface2_notes",
+            "value": "",
+            "description": "The notes for this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].available",
+            "legacy_field": "interface2_available",
+            "value": "",
+            "description": "The availability setting for this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].deliveryMethod",
+            "legacy_field": "interface2_deliveryMethod",
+            "value": "",
+            "description": "The delivery method for this organization's second interface (Online, FTP, Email, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].statisticsFormat",
+            "legacy_field": "interface2_statisticsFormat",
+            "value": "",
+            "description": "The format of the statistics for this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].locallyStored",
+            "legacy_field": "interface2_locallyStored",
+            "value": "",
+            "description": "The locally stored location of this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].onlineLocation",
+            "legacy_field": "interface2_onlineLocation",
+            "value": "",
+            "description": "The online location for this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].statisticsNotes",
+            "legacy_field": "interface2_statisticsNotes",
+            "value": "",
+            "description": "The notes regarding the statistics for this organization's second interface",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].username",
+            "legacy_field": "interface2_username",
+            "value": "",
+            "description": "The login username for this organization's second interface (builds an interfaceCredential record alongside it)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "interfaces[2].password",
+            "legacy_field": "interface2_password",
+            "value": "",
+            "description": "The login password for this organization's second interface (builds an interfaceCredential record alongside it)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[1].value",
+            "legacy_field": "alias_value",
+            "value": "",
+            "description": "The unique name of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[1].description",
+            "legacy_field": "alias_description",
+            "value": "",
+            "description": "The description of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[4].value",
+            "legacy_field": "alias4_value",
+            "value": "",
+            "description": "The organization's fourth unique name of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[4].description",
+            "legacy_field": "alias4_description",
+            "value": "",
+            "description": "The organization's fourth description of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[5].value",
+            "legacy_field": "alias5_value",
+            "value": "",
+            "description": "The organization's fifth unique name of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "aliases[5].description",
+            "legacy_field": "alias5_description",
+            "value": "",
+            "description": "The organization's fifth description of this alias",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].addressLine1",
+            "legacy_field": "address_addressLine1",
+            "value": "",
+            "description": "The first line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].addressLine2",
+            "legacy_field": "address_addressLine2",
+            "value": "",
+            "description": "The second line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].city",
+            "legacy_field": "address_city",
+            "value": "",
+            "description": "The city for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].stateRegion",
+            "legacy_field": "address_stateRegion",
+            "value": "",
+            "description": "The state or region for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].zipCode",
+            "legacy_field": "address_zipCode",
+            "value": "",
+            "description": "The zip code for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].country",
+            "legacy_field": "address_country",
+            "value": "",
+            "description": "The country for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].language",
+            "legacy_field": "address_language",
+            "value": "",
+            "description": "The language for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].categories",
+            "legacy_field": "address_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[1].isPrimary",
+            "legacy_field": "address_isPrimary",
+            "value": "",
+            "description": "Whether this organization address is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].addressLine1",
+            "legacy_field": "address3_addressLine1",
+            "value": "",
+            "description": "The organization's third first line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].addressLine2",
+            "legacy_field": "address3_addressLine2",
+            "value": "",
+            "description": "The organization's third second line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].city",
+            "legacy_field": "address3_city",
+            "value": "",
+            "description": "The organization's third city for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].stateRegion",
+            "legacy_field": "address3_stateRegion",
+            "value": "",
+            "description": "The organization's third state or region for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].zipCode",
+            "legacy_field": "address3_zipCode",
+            "value": "",
+            "description": "The organization's third zip code for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].country",
+            "legacy_field": "address3_country",
+            "value": "",
+            "description": "The organization's third country for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].language",
+            "legacy_field": "address3_language",
+            "value": "",
+            "description": "The organization's third language for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].categories",
+            "legacy_field": "address3_categories",
+            "value": "",
+            "description": "The organization's third list of category UUIDs for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[3].isPrimary",
+            "legacy_field": "address3_isPrimary",
+            "value": "",
+            "description": "Whether this organization address is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].addressLine1",
+            "legacy_field": "address4_addressLine1",
+            "value": "",
+            "description": "The organization's fourth first line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].addressLine2",
+            "legacy_field": "address4_addressLine2",
+            "value": "",
+            "description": "The organization's fourth second line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].city",
+            "legacy_field": "address4_city",
+            "value": "",
+            "description": "The organization's fourth city for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].stateRegion",
+            "legacy_field": "address4_stateRegion",
+            "value": "",
+            "description": "The organization's fourth state or region for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].zipCode",
+            "legacy_field": "address4_zipCode",
+            "value": "",
+            "description": "The organization's fourth zip code for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].country",
+            "legacy_field": "address4_country",
+            "value": "",
+            "description": "The organization's fourth country for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].language",
+            "legacy_field": "address4_language",
+            "value": "",
+            "description": "The organization's fourth language for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].categories",
+            "legacy_field": "address4_categories",
+            "value": "",
+            "description": "The organization's fourth list of category UUIDs for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[4].isPrimary",
+            "legacy_field": "address4_isPrimary",
+            "value": "",
+            "description": "Whether this organization address is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].addressLine1",
+            "legacy_field": "address5_addressLine1",
+            "value": "",
+            "description": "The organization's fifth first line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].addressLine2",
+            "legacy_field": "address5_addressLine2",
+            "value": "",
+            "description": "The organization's fifth second line of this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].city",
+            "legacy_field": "address5_city",
+            "value": "",
+            "description": "The organization's fifth city for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].stateRegion",
+            "legacy_field": "address5_stateRegion",
+            "value": "",
+            "description": "The organization's fifth state or region for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].zipCode",
+            "legacy_field": "address5_zipCode",
+            "value": "",
+            "description": "The organization's fifth zip code for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].country",
+            "legacy_field": "address5_country",
+            "value": "",
+            "description": "The organization's fifth country for this address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].language",
+            "legacy_field": "address5_language",
+            "value": "",
+            "description": "The organization's fifth language for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].categories",
+            "legacy_field": "address5_categories",
+            "value": "",
+            "description": "The organization's fifth list of category UUIDs for this organization address",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "addresses[5].isPrimary",
+            "legacy_field": "address5_isPrimary",
+            "value": "",
+            "description": "Whether this organization address is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[1].phoneNumber",
+            "legacy_field": "phone_phoneNumber",
+            "value": "",
+            "description": "The entire sequence of digits for this phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[1].type",
+            "legacy_field": "phone_type",
+            "value": "",
+            "description": "The type of this phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[1].language",
+            "legacy_field": "phone_language",
+            "value": "",
+            "description": "The language for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[1].categories",
+            "legacy_field": "phone_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[1].isPrimary",
+            "legacy_field": "phone_isPrimary",
+            "value": "",
+            "description": "Whether this organization phone number is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[2].isPrimary",
+            "legacy_field": "phone2_isPrimary",
+            "value": "",
+            "description": "Whether this organization phone number is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[3].isPrimary",
+            "legacy_field": "phone3_isPrimary",
+            "value": "",
+            "description": "Whether this organization phone number is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[4].phoneNumber",
+            "legacy_field": "phone4_phoneNumber",
+            "value": "",
+            "description": "The organization's fourth entire sequence of digits for this phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[4].type",
+            "legacy_field": "phone4_type",
+            "value": "",
+            "description": "The organization's fourth type of this phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[4].language",
+            "legacy_field": "phone4_language",
+            "value": "",
+            "description": "The organization's fourth language for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[4].categories",
+            "legacy_field": "phone4_categories",
+            "value": "",
+            "description": "The organization's fourth list of category UUIDs for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[4].isPrimary",
+            "legacy_field": "phone4_isPrimary",
+            "value": "",
+            "description": "Whether this organization phone number is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[5].phoneNumber",
+            "legacy_field": "phone5_phoneNumber",
+            "value": "",
+            "description": "The organization's fifth entire sequence of digits for this phone number",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[5].type",
+            "legacy_field": "phone5_type",
+            "value": "",
+            "description": "The organization's fifth type of this phone number (Office, Mobile, Fax, or Other)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[5].language",
+            "legacy_field": "phone5_language",
+            "value": "",
+            "description": "The organization's fifth language for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[5].categories",
+            "legacy_field": "phone5_categories",
+            "value": "",
+            "description": "The organization's fifth list of category UUIDs for this organization phone",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "phoneNumbers[5].isPrimary",
+            "legacy_field": "phone5_isPrimary",
+            "value": "",
+            "description": "Whether this organization phone number is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[1].value",
+            "legacy_field": "email_value",
+            "value": "",
+            "description": "The value for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[1].description",
+            "legacy_field": "email_description",
+            "value": "",
+            "description": "The description for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[1].language",
+            "legacy_field": "email_language",
+            "value": "",
+            "description": "The language for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[1].categories",
+            "legacy_field": "email_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[1].isPrimary",
+            "legacy_field": "email_isPrimary",
+            "value": "",
+            "description": "Whether this organization email is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[3].language",
+            "legacy_field": "email3_language",
+            "value": "",
+            "description": "The organization's third language for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[3].categories",
+            "legacy_field": "email3_categories",
+            "value": "",
+            "description": "The organization's third list of category UUIDs for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[3].isPrimary",
+            "legacy_field": "email3_isPrimary",
+            "value": "",
+            "description": "Whether this organization email is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[4].value",
+            "legacy_field": "email4_value",
+            "value": "",
+            "description": "The organization's fourth value for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[4].description",
+            "legacy_field": "email4_description",
+            "value": "",
+            "description": "The organization's fourth description for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[4].language",
+            "legacy_field": "email4_language",
+            "value": "",
+            "description": "The organization's fourth language for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[4].categories",
+            "legacy_field": "email4_categories",
+            "value": "",
+            "description": "The organization's fourth list of category UUIDs for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[4].isPrimary",
+            "legacy_field": "email4_isPrimary",
+            "value": "",
+            "description": "Whether this organization email is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[5].value",
+            "legacy_field": "email5_value",
+            "value": "",
+            "description": "The organization's fifth value for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[5].description",
+            "legacy_field": "email5_description",
+            "value": "",
+            "description": "The organization's fifth description for this email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[5].language",
+            "legacy_field": "email5_language",
+            "value": "",
+            "description": "The organization's fifth language for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[5].categories",
+            "legacy_field": "email5_categories",
+            "value": "",
+            "description": "The organization's fifth list of category UUIDs for this organization email",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "emails[5].isPrimary",
+            "legacy_field": "email5_isPrimary",
+            "value": "",
+            "description": "Whether this organization email is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].value",
+            "legacy_field": "url_value",
+            "value": "",
+            "description": "The value for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].description",
+            "legacy_field": "url_description",
+            "value": "",
+            "description": "The description for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].language",
+            "legacy_field": "url_language",
+            "value": "",
+            "description": "The language for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].notes",
+            "legacy_field": "url_notes",
+            "value": "",
+            "description": "The notes for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].categories",
+            "legacy_field": "url_categories",
+            "value": "",
+            "description": "The list of category UUIDs for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[1].isPrimary",
+            "legacy_field": "url_isPrimary",
+            "value": "",
+            "description": "Whether this organization URL is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].value",
+            "legacy_field": "url3_value",
+            "value": "",
+            "description": "The organization's third value for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].description",
+            "legacy_field": "url3_description",
+            "value": "",
+            "description": "The organization's third description for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].language",
+            "legacy_field": "url3_language",
+            "value": "",
+            "description": "The organization's third language for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].notes",
+            "legacy_field": "url3_notes",
+            "value": "",
+            "description": "The organization's third notes for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].categories",
+            "legacy_field": "url3_categories",
+            "value": "",
+            "description": "The organization's third list of category UUIDs for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[3].isPrimary",
+            "legacy_field": "url3_isPrimary",
+            "value": "",
+            "description": "Whether this organization URL is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].value",
+            "legacy_field": "url4_value",
+            "value": "",
+            "description": "The organization's fourth value for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].description",
+            "legacy_field": "url4_description",
+            "value": "",
+            "description": "The organization's fourth description for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].language",
+            "legacy_field": "url4_language",
+            "value": "",
+            "description": "The organization's fourth language for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].notes",
+            "legacy_field": "url4_notes",
+            "value": "",
+            "description": "The organization's fourth notes for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].categories",
+            "legacy_field": "url4_categories",
+            "value": "",
+            "description": "The organization's fourth list of category UUIDs for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[4].isPrimary",
+            "legacy_field": "url4_isPrimary",
+            "value": "",
+            "description": "Whether this organization URL is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].value",
+            "legacy_field": "url5_value",
+            "value": "",
+            "description": "The organization's fifth value for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].description",
+            "legacy_field": "url5_description",
+            "value": "",
+            "description": "The organization's fifth description for this URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].language",
+            "legacy_field": "url5_language",
+            "value": "",
+            "description": "The organization's fifth language for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].notes",
+            "legacy_field": "url5_notes",
+            "value": "",
+            "description": "The organization's fifth notes for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].categories",
+            "legacy_field": "url5_categories",
+            "value": "",
+            "description": "The organization's fifth list of category UUIDs for this organization URL",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "urls[5].isPrimary",
+            "legacy_field": "url5_isPrimary",
+            "value": "",
+            "description": "Whether this organization URL is the primary one (true/false)",
+            "fallback_legacy_field": ""
+        }
+    ]
+}

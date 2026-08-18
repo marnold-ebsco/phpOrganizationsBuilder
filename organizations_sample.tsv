@@ -1,0 +1,6 @@
+name	code	status	description	isVendor	isDonor	taxId	vendorCurrencies	organizationTypes	address_addressLine1	address_city	address_stateRegion	address_zipCode	address_country	phone_phoneNumber	phone_type	email_value	email_description	url_value	url_description	alias_value	address2_addressLine1	address2_city	address2_stateRegion	address2_zipCode	address2_country	phone2_phoneNumber	phone2_type	email2_value	email2_description	url2_value	url2_description	alias2_value	alias3_value
+EBSCO Information Services	EBSCO	Active	Subscription agent and database vendor	true	false	04-1667882	USD|EUR	Subscription Agent	10 Estes St	Ipswich	MA	01938	USA	978-356-6500	Office	customerservice@ebsco.com	General customer service	https://www.ebsco.com	Main corporate site	EBSCOhost	10 Estes St, Suite 200	Ipswich	MA	01938	USA	978-356-6600	Fax	vendorsupport@ebsco.com	Vendor support	https://support.ebsco.com	Support portal	EBSCO Industries	Elton B. Stephens Company
+Elsevier B.V.	ELSEVIER	Active	Journal and ebook publisher	true	false		USD		Radarweg 29	Amsterdam		1043 NX	Netherlands	+31-20-4853757	Office			https://www.elsevier.com		Elsevier Science
+Friends of the Library	FOL-DONOR	Active	Local donor organization	false	true
+Bad Row Publishing		Active	Missing code should fail
+Sketchy Vendor LLC	SKETCHY	Suspended	Invalid status should fail
