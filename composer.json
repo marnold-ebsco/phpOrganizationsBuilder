@@ -4,6 +4,10 @@
     "type": "library",
     "require": {
         "php": ">=8.1",
+        "ext-zip": "*",
+        "ext-simplexml": "*",
+        "ext-curl": "*",
+        "ext-mbstring": "*",
         "marnold-ebsco/phpfolioclient": "dev-main"
     },
     "require-dev": {
