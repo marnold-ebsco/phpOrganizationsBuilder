@@ -5,7 +5,7 @@
 To process data using this template:
 
 ```bash
-php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log
+php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log  --folio-config=folio.ini
 ```
 
 Then, once you have output you're happy with, load it into a live
@@ -14,7 +14,7 @@ FOLIO tenant — always `--dry-run` first (see
 in the main README):
 
 ```bash
-php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/ --dry-run
+php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/  --dry-run
 php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/
 ```
 

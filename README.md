@@ -5,13 +5,13 @@
 To process data using the alternate template (recommended):
 
 ```bash
-php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log
+php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log  --folio-config=folio.ini
 ```
 
 To process data using the original template:
 
 ```bash
-php process_template.php --input="Organization_Template_example_data.xlsx" --output-dir=output --error-log=output/run.log
+php process_template.php --input="Organization_Template_example_data.xlsx" --output-dir=output --error-log=output/run.log  --folio-config=folio.ini
 ```
 
 To process a delimited text file directly (skips both Excel templates —
@@ -19,7 +19,7 @@ see [Setting up the field mapping](#setting-up-the-field-mapping)):
 
 ```bash
 mkdir -p output
-php bin/build-organizations --input=your_file.tsv --mapping=path/to/your_mapping.json --output=output/organizations.json
+php bin/build-organizations --input=your_file.tsv --mapping=path/to/your_mapping.json --output=output/organizations.json  --folio-config=folio.ini
 ```
 
 Unlike the two `process_template*.php` scripts above, `bin/build-organizations`
