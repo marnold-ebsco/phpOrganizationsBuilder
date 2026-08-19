@@ -749,25 +749,30 @@ A few things worth knowing about how it works:
   `interfaceId` field (or `notes.json`'s `links[].id`) is exactly what
   keeps those cross-references valid. Don't edit those files to strip
   `id` out before loading.
-- **`note_types.json` is the one exception.** FOLIO's `/note-types`
-  endpoint always assigns its own id on create — confirmed against a
-  live tenant — silently ignoring whatever id is in the request body,
-  unlike every other endpoint above. Since `notes.json`'s `typeId`
-  values were computed locally and won't match FOLIO's real id,
-  `load_to_folio.php` tracks each note type's real id as it's created
-  and rewrites every note's `typeId` to match, right before posting it
-  (logged as `Remapped typeId ... to ... (FOLIO's real note-type id)`).
-  `/note-types` has also been observed (also against a live tenant) to
-  return a `500 Internal Server Error` for a POST that still creates
-  the record anyway; when that happens, `load_to_folio.php` looks the
-  note type's name up directly to recover its real id (logged as
-  `... POST reported an error (...) but already exists in FOLIO (id
-  ...)`), so the note it belongs to can still load correctly. A note
-  type that genuinely fails to load (that lookup also comes up empty)
-  has no real id to substitute, so any note referencing it is sent with
-  its original, now-invalid `typeId` and fails too — a `--dry-run`
-  can't preview any of this, since it depends on an id FOLIO hasn't
-  assigned yet.
+- **`note_types.json`/`notes.json` are the exception.** FOLIO's
+  `/note-types` endpoint always assigns its own id on create — confirmed
+  against a live tenant — silently ignoring whatever id is in the
+  request body, unlike every other endpoint above. Since `notes.json`'s
+  `typeId` values were computed locally and won't match FOLIO's real
+  id, `load_to_folio.php` tracks each note type's real id as it's
+  created and rewrites every note's `typeId` to match, right before
+  posting it (logged as `Remapped typeId ... to ... (FOLIO's real
+  note-type id)`).
+
+  mod-notes (both `/note-types` and `/notes`) has also been observed,
+  against a live tenant, to return a `500 Internal Server Error` for a
+  POST that creates the record anyway. When either POST throws,
+  `load_to_folio.php` checks whether the record exists regardless —
+  `/note-types` by name, `/notes` by title plus a shared `links[].id`
+  (a note has no name to search by) — and, if so, treats it as loaded
+  rather than failed (logged as `... POST reported an error (...) but
+  already exists in FOLIO ...`); for a note type, its real id is also
+  captured for the `typeId` remap above. A record that genuinely fails
+  to load (that lookup also comes up empty) is reported as failed as
+  usual; for a note type, that also means any note referencing it is
+  sent with its original, now-invalid `typeId` and fails too. A
+  `--dry-run` can't preview any of this, since it depends on server
+  responses that only exist once records are actually POSTed.
 - A missing input file (e.g. no `credentials.json` because nothing had
   login credentials, or no `notes.json` because no row had a note)
   isn't an error — that phase is just skipped.

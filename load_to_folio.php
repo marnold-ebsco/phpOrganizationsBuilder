@@ -34,14 +34,19 @@
  * computed locally and won't match FOLIO's real id, this script tracks
  * each note type's real id as it's created and rewrites every note's
  * `typeId` to match before posting it — the one place a record is
- * *not* sent exactly as found in its file. `/note-types` has also been
- * observed to return a 500 error for a POST that still creates the
- * record anyway (also confirmed against a live tenant); when a
- * note-type POST throws, this script looks the name up directly to
- * check for exactly that, so its real id can still be captured. A note
- * type that genuinely fails to load (that lookup also comes up empty)
- * has no real id to substitute, so any note referencing it is sent with
- * its original (now-invalid) `typeId` and fails too.
+ * *not* sent exactly as found in its file.
+ *
+ * mod-notes (both `/note-types` and `/notes`) has also been observed,
+ * against a live tenant, to return a 500 error for a POST that creates
+ * the record anyway. When either POST throws, this script checks
+ * whether the record exists regardless (`/note-types` by name;
+ * `/notes` by title plus a shared `links[].id`, since a note has no
+ * name to search by) and, if so, treats it as loaded rather than
+ * failed — for a note type, its real id is also captured for the
+ * `typeId` remap above. A record that genuinely fails to load (that
+ * lookup also comes up empty) is reported as failed as usual; for a
+ * note type, that also means any note referencing it is sent with its
+ * original (now-invalid) `typeId` and fails too.
  *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
@@ -205,6 +210,27 @@ function findExistingNoteTypeIdByName(FolioClient $client, string $name): ?strin
     return null;
 }
 
+/**
+ * mod-notes' `/notes` endpoint has also been observed (against a live
+ * tenant) to return a 500 error for a POST that nonetheless creates the
+ * note anyway — the same failure mode as `/note-types` above. Called
+ * only after a notes POST throws: a note has no natural name to search
+ * by, so this matches on title AND at least one shared `links[].id`
+ * (the organization it belongs to), to avoid mistaking a different,
+ * unrelated note that merely happens to share a title for the one this
+ * script just tried to create.
+ */
+function noteAlreadyExists(FolioClient $client, string $title, array $expectedLinkIds): bool {
+    $escapedTitle = str_replace('"', '\\"', $title);
+    foreach ($client->getAll('/notes', 'title=="' . $escapedTitle . '"') as $note) {
+        $foundLinkIds = array_column((array) ($note->links ?? []), 'id');
+        if (array_intersect($expectedLinkIds, $foundLinkIds) !== []) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function main(array $argv): int {
     $options = Options::parse($argv);
 
@@ -343,6 +369,9 @@ function main(array $argv): int {
                         $noteTypeIdRemap[(string) $record['id']] = $recoveredId;
                     }
                     $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO (id {$recoveredId}) — /note-types is known to sometimes create a record while still returning an error; using its real id for the typeId remap.");
+                } elseif ($phaseFile === 'notes' && isset($record['title']) && noteAlreadyExists($client, (string) $record['title'], array_column($record['links'] ?? [], 'id'))) {
+                    $created++;
+                    $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO — /notes is known to sometimes create a record while still returning an error.");
                 } else {
                     $failed++;
                     $hadErrors = true;
