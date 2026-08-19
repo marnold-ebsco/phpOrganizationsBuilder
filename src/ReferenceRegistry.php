@@ -4,20 +4,32 @@ namespace Organizations;
 
 /**
  * Deduplicates named reference-data values (e.g. category names,
- * organization-type names) into freshly generated UUIDs, shared across a
+ * organization-type names) into deterministic UUIDs, shared across a
  * whole build run so the same name always resolves to the same UUID no
- * matter which record (organization, contact, ...) mentions it first.
+ * matter which record (organization, contact, ...) mentions it first —
+ * and, since the id is deterministic (see {@see FOLIO_NAMESPACE}), the
+ * *same* UUID again on a completely separate run, too.
  *
  * Reference data in FOLIO (categories, organization types) are their own
  * resources, addressed by UUID from elsewhere. When the caller already
  * knows a name's real UUID from the target FOLIO tenant (see
  * {@see seed()} — typically because bin/build-organizations looked it up
  * there first), that real UUID is reused and nothing new needs creating.
- * Only for a name with no existing match does this registry invent a
- * fresh UUID, and {@see getRecords()} dumps *just those newly-invented*
- * records afterward — the ones that still need to be created.
+ * Only for a name with no existing match does this registry generate a
+ * UUID of its own, and {@see getRecords()} dumps *just those* records
+ * afterward — the ones that still need to be created.
  */
 final class ReferenceRegistry {
+    /**
+     * FOLIO's own well-known namespace for deterministic (UUID v5) ids —
+     * see {@see resolve()}. Matches the convention FOLIO's own migration
+     * tooling uses (the `folio_uuid` Python library:
+     * https://github.com/FOLIO-FSE/folio_uuid), so an id computed here is
+     * byte-identical to one any other tool following that same
+     * convention would compute for the same name.
+     */
+    public const FOLIO_NAMESPACE = '8405ae4d-b315-42e1-918a-d1919900cf3f';
+
     /** @var array<string, array<string, string>> namespace => (lowercased name => uuid) */
     private array $uuidsByName = [];
 
@@ -29,6 +41,22 @@ final class ReferenceRegistry {
 
     /** @var array<string, array<string, list<int>>> namespace => (lowercased name => every row number that ever resolved it) — reporting only, e.g. for orphan-detection when a name's only referencing rows all belong to rejected organizations. */
     private array $referencingRows = [];
+
+    /**
+     * @param $tenant Tenant id (from `--folio-config`, when given) mixed
+     *                into every deterministic id this registry generates,
+     *                so the same name gets a different id in a different
+     *                target tenant — matching the real `folio_uuid`
+     *                convention exactly. Defaults to the fixed placeholder
+     *                `'offline'` when there's no real tenant to use
+     *                (running without `--folio-config`, the default) —
+     *                still fully deterministic run-to-run, just not
+     *                tenant-scoped.
+     */
+    public function __construct(
+        private readonly string $tenant = 'offline',
+    ) {
+    }
 
     /**
      * Register a name's real, already-existing UUID (e.g. fetched from
@@ -63,8 +91,13 @@ final class ReferenceRegistry {
 
     /**
      * Resolve a name to its UUID within a namespace: reuses a
-     * {@see seed()}ed UUID if one matches, otherwise generates a fresh
-     * one the first time this (namespace, name) pair is seen.
+     * {@see seed()}ed UUID if one matches, otherwise computes a
+     * deterministic one (`uuid5(FOLIO_NAMESPACE, "{tenant}:{namespace}:{key}")`
+     * — see {@see FOLIO_NAMESPACE}) the first time this (namespace, name)
+     * pair is seen. The hash uses the same lowercased/trimmed key
+     * matching is already done on, so two names this method already
+     * treats as equivalent (`Billing`/`billing`) keep resolving to the
+     * same id on a separate run too, not just within this one.
      *
      * @param $namespace Logical grouping (e.g. `category`, `organizationType`).
      * @param $name      The raw name to resolve; matching is
@@ -80,7 +113,8 @@ final class ReferenceRegistry {
         $key = strtolower($name);
 
         if (!isset($this->uuidsByName[$namespace][$key])) {
-            $uuid = self::generateUuidV4();
+            $combined = implode(':', [$this->tenant, $namespace, $key]);
+            $uuid = self::generateUuidV5(self::FOLIO_NAMESPACE, $combined);
             $this->uuidsByName[$namespace][$key] = $uuid;
             $this->namesByUuid[$namespace][$uuid] = $name;
         }
@@ -135,6 +169,36 @@ final class ReferenceRegistry {
     public static function generateUuidV4(): string {
         $data = random_bytes(16);
         $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+        $hex = bin2hex($data);
+        return sprintf(
+            '%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12)
+        );
+    }
+
+    /**
+     * Generate a deterministic UUID v5 (version/variant nibbles set per
+     * RFC 4122): the same `$namespace`/`$name` pair always produces the
+     * same UUID. Computed exactly per RFC 4122 §4.3 — SHA-1 of the
+     * namespace's 16 raw bytes followed by `$name`, truncated to 16
+     * bytes with version/variant bits overwritten — the same algorithm
+     * Python's `uuid.uuid5()` (and the FOLIO ecosystem's own `folio_uuid`
+     * library) use, so this produces identical output for identical
+     * input regardless of which implementation computed it.
+     *
+     * @param $namespace A UUID string — e.g. {@see FOLIO_NAMESPACE}.
+     * @param $name      The value to hash within that namespace.
+     */
+    public static function generateUuidV5(string $namespace, string $name): string {
+        $namespaceBytes = hex2bin(str_replace('-', '', $namespace));
+        $hash = sha1((string) $namespaceBytes . $name, true);
+        $data = substr($hash, 0, 16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x50);
         $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
         $hex = bin2hex($data);
         return sprintf(

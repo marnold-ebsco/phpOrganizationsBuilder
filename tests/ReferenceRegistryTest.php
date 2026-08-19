@@ -129,6 +129,47 @@ final class ReferenceRegistryTest extends TestCase {
         $this->assertSame([], $this->registry->getReferencingRows('category', 'Nonexistent'));
     }
 
+    public function testGeneratedUuidsAreVersion5Variant1(): void {
+        $uuid = $this->registry->resolve('category', 'Billing');
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $uuid
+        );
+    }
+
+    public function testSameNameResolvesToTheSameUuidAcrossSeparateRegistries(): void {
+        // Not just within-run caching (testSameNameResolvesToTheSameUuid
+        // already covers that) — a completely separate registry instance,
+        // as a separate run of bin/build-organizations would construct,
+        // must reproduce the exact same id for the same name.
+        $first = (new ReferenceRegistry())->resolve('category', 'Billing');
+        $second = (new ReferenceRegistry())->resolve('category', 'Billing');
+
+        $this->assertSame($first, $second);
+    }
+
+    public function testDifferentTenantsGetDifferentUuidsForTheSameName(): void {
+        $offline = (new ReferenceRegistry('offline'))->resolve('category', 'Billing');
+        $tenantA = (new ReferenceRegistry('diku'))->resolve('category', 'Billing');
+
+        $this->assertNotSame($offline, $tenantA);
+    }
+
+    public function testGenerateUuidV5MatchesTheDocumentedFolioUuidExample(): void {
+        // From https://github.com/FOLIO-FSE/folio_uuid's own README:
+        // namespace 8405ae4d-b315-42e1-918a-d1919900cf3f + name
+        // "https://okapi-bugfest-juniper.folio.ebsco.com:items:i3696836"
+        // is documented to produce this exact UUID — proof this
+        // implementation matches the real convention byte-for-byte, not
+        // just "looks like a v5 UUID".
+        $uuid = ReferenceRegistry::generateUuidV5(
+            ReferenceRegistry::FOLIO_NAMESPACE,
+            'https://okapi-bugfest-juniper.folio.ebsco.com:items:i3696836'
+        );
+
+        $this->assertSame('9647225d-d8e9-530d-b8cc-52a53be14e26', $uuid);
+    }
+
     public function testGeneratedUuidsAreVersion4Variant1(): void {
         $uuid = ReferenceRegistry::generateUuidV4();
         $this->assertMatchesRegularExpression(
