@@ -27,6 +27,17 @@
  * to correctly reference `interfaces.json`, and `notes.json` to
  * correctly reference `organizations.json` via each note's `links[].id`.
  *
+ * One exception: FOLIO's `/note-types` endpoint always assigns its own
+ * id on create, ignoring whatever id is in the POST body (confirmed
+ * against a live tenant — every other endpoint here does honor a
+ * client-supplied one). Since `notes.json`'s `typeId` values were
+ * computed locally and won't match FOLIO's real id, this script tracks
+ * each note type's real id as it's created and rewrites every note's
+ * `typeId` to match before posting it — the one place a record is
+ * *not* sent exactly as found in its file. A note type that fails to
+ * load has no real id to substitute, so any note referencing it is
+ * sent with its original (now-invalid) `typeId` and fails too.
+ *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
  * abort the rest of that file, or later files. This is NOT idempotent:
@@ -231,6 +242,21 @@ function main(array $argv): int {
 
     $hadErrors = false;
 
+    // FOLIO's /note-types endpoint always assigns its own id on create,
+    // silently ignoring whatever id is in the POST body — unlike every
+    // other endpoint this script talks to (organizations, interfaces,
+    // etc., which do honor a client-supplied id). Since notes.json's
+    // `typeId` values were computed locally by bin/build-organizations
+    // (see README.md's "Reference data" section) and won't match
+    // FOLIO's real id, this maps each note type's original (file) id to
+    // whatever real id FOLIO actually returned when it was created, so
+    // the notes phase below can rewrite each note's `typeId` before
+    // posting it. A note type that failed to load at all has no entry
+    // here, so any note referencing it is posted with its original,
+    // unmapped typeId — which will itself fail (FOLIO won't recognize
+    // it), logged the same way as any other per-record failure.
+    $noteTypeIdRemap = [];
+
     foreach (PHASES as [$phaseFile, $fixedEndpoint, $label]) {
         $path = $filePaths[$phaseFile];
         $errorLog->write("== {$label} ({$path}) ==");
@@ -250,6 +276,13 @@ function main(array $argv): int {
             if (!is_array($record)) {
                 continue;
             }
+
+            if ($phaseFile === 'notes' && isset($record['typeId'], $noteTypeIdRemap[$record['typeId']])) {
+                $originalTypeId = $record['typeId'];
+                $record['typeId'] = $noteTypeIdRemap[$originalTypeId];
+                $errorLog->write("Remapped typeId {$originalTypeId} to {$record['typeId']} (FOLIO's real note-type id).");
+            }
+
             $endpoint = endpointFor($phaseFile, $fixedEndpoint, $record);
             $label2 = recordLabel($phaseFile, $record);
 
@@ -261,14 +294,21 @@ function main(array $argv): int {
             }
 
             if ($dryRun) {
+                // Can't preview the note-type remap above: it depends on
+                // an id FOLIO hasn't assigned yet, since nothing is
+                // actually POSTed in a dry run. A note's typeId shown
+                // here is always the original, locally-computed one.
                 $errorLog->write("[DRY RUN] Would POST {$label2} to {$endpoint}: " . json_encode($record, JSON_UNESCAPED_SLASHES));
                 $created++;
                 continue;
             }
 
             try {
-                $client->post($endpoint, $record);
+                $response = $client->post($endpoint, $record);
                 $created++;
+                if ($phaseFile === 'note_types' && isset($record['id']) && isset($response->id)) {
+                    $noteTypeIdRemap[(string) $record['id']] = (string) $response->id;
+                }
             } catch (\Throwable $e) {
                 $failed++;
                 $hadErrors = true;
