@@ -34,9 +34,14 @@
  * computed locally and won't match FOLIO's real id, this script tracks
  * each note type's real id as it's created and rewrites every note's
  * `typeId` to match before posting it — the one place a record is
- * *not* sent exactly as found in its file. A note type that fails to
- * load has no real id to substitute, so any note referencing it is
- * sent with its original (now-invalid) `typeId` and fails too.
+ * *not* sent exactly as found in its file. `/note-types` has also been
+ * observed to return a 500 error for a POST that still creates the
+ * record anyway (also confirmed against a live tenant); when a
+ * note-type POST throws, this script looks the name up directly to
+ * check for exactly that, so its real id can still be captured. A note
+ * type that genuinely fails to load (that lookup also comes up empty)
+ * has no real id to substitute, so any note referencing it is sent with
+ * its original (now-invalid) `typeId` and fails too.
  *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
@@ -182,6 +187,24 @@ function endpointFor(string $phaseFile, ?string $fixedEndpoint, array $record): 
     return "/organizations-storage/interfaces/{$interfaceId}/credentials";
 }
 
+/**
+ * FOLIO's `/note-types` endpoint has been observed (against a live
+ * tenant) to return a 500 error for a POST that nonetheless creates the
+ * record — under its own, real, server-generated id. Guzzle throws
+ * before this script ever sees that response's body, so a failed POST
+ * doesn't necessarily mean nothing was created. Called only after a
+ * note-type POST throws: looks the name up directly to recover its real
+ * id, if it exists despite the error.
+ */
+function findExistingNoteTypeIdByName(FolioClient $client, string $name): ?string {
+    foreach ($client->getAll('/note-types') as $noteType) {
+        if (($noteType->name ?? null) === $name) {
+            return (string) $noteType->id;
+        }
+    }
+    return null;
+}
+
 function main(array $argv): int {
     $options = Options::parse($argv);
 
@@ -310,9 +333,21 @@ function main(array $argv): int {
                     $noteTypeIdRemap[(string) $record['id']] = (string) $response->id;
                 }
             } catch (\Throwable $e) {
-                $failed++;
-                $hadErrors = true;
-                $errorLog->write("Failed to load {$label2} ({$endpoint}): " . $e->getMessage());
+                $recoveredId = ($phaseFile === 'note_types' && isset($record['name']))
+                    ? findExistingNoteTypeIdByName($client, (string) $record['name'])
+                    : null;
+
+                if ($recoveredId !== null) {
+                    $created++;
+                    if (isset($record['id'])) {
+                        $noteTypeIdRemap[(string) $record['id']] = $recoveredId;
+                    }
+                    $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO (id {$recoveredId}) — /note-types is known to sometimes create a record while still returning an error; using its real id for the typeId remap.");
+                } else {
+                    $failed++;
+                    $hadErrors = true;
+                    $errorLog->write("Failed to load {$label2} ({$endpoint}): " . $e->getMessage());
+                }
             }
         }
 

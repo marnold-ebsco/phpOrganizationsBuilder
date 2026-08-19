@@ -757,15 +757,17 @@ A few things worth knowing about how it works:
   `load_to_folio.php` tracks each note type's real id as it's created
   and rewrites every note's `typeId` to match, right before posting it
   (logged as `Remapped typeId ... to ... (FOLIO's real note-type id)`).
-  A note type that fails to load has no real id to substitute, so any
-  note referencing it is sent with its original, now-invalid `typeId`
-  and fails too — a `--dry-run` can't preview this remap, since it
-  depends on an id FOLIO hasn't assigned yet.
-- `organizations.json` and `contacts.json` records don't reference each
-  other, or the contents of `interfaces.json`/`credentials.json` — that
-  linkage (an organization's own `contacts`/`interfaces` arrays) isn't
-  built by either script (see [Limitations](#limitations)), so there's
-  nothing to fix up after loading unless you want to add it yourself.
+  `/note-types` has also been observed (also against a live tenant) to
+  return a `500 Internal Server Error` for a POST that still creates
+  the record anyway; when that happens, `load_to_folio.php` looks the
+  note type's name up directly to recover its real id (logged as
+  `... POST reported an error (...) but already exists in FOLIO (id
+  ...)`), so the note it belongs to can still load correctly. A note
+  type that genuinely fails to load (that lookup also comes up empty)
+  has no real id to substitute, so any note referencing it is sent with
+  its original, now-invalid `typeId` and fails too — a `--dry-run`
+  can't preview any of this, since it depends on an id FOLIO hasn't
+  assigned yet.
 - A missing input file (e.g. no `credentials.json` because nothing had
   login credentials, or no `notes.json` because no row had a note)
   isn't an error — that phase is just skipped.
