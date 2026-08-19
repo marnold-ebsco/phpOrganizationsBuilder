@@ -1,36 +1,80 @@
 # Organizations Import
 
+## TL;DR
+
+To process data using the alternate template (recommended):
+
+```bash
+php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log
+```
+
+To process data using the original template:
+
+```bash
+php process_template.php --input="Organization_Template_example_data.xlsx" --output-dir=output --error-log=output/run.log
+```
+
+To process a delimited text file directly (skips both Excel templates —
+see [Setting up the field mapping](#setting-up-the-field-mapping)):
+
+```bash
+mkdir -p output
+php bin/build-organizations --input=your_file.tsv --mapping=path/to/your_mapping.json --output=output/organizations.json
+```
+
+Unlike the two `process_template*.php` scripts above, `bin/build-organizations`
+does **not** create its output directory for you (`--output-dir` isn't
+one of its options — every other output file lands next to whatever
+directory `--output` is in), so `mkdir -p output` first or the run fails
+outright. Each command above builds every record type it finds — including
+`notes.json`, `contacts.json`, `interfaces.json`, `credentials.json`,
+and the deduplicated `categories.json`/`organization_types.json`/`note_types.json` —
+into the given output directory; run any of them with `--help` for the
+full option list, or read on for everything else this package does.
+
+Once you have output you're happy with, load it into a live FOLIO
+tenant — always `--dry-run` first (see
+[Loading the output into FOLIO](#loading-the-output-into-folio)):
+
+```bash
+php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/ --dry-run
+php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/
+```
+
+(`folio.ini` is a FolioConfig file — `okapiUrl`, `tenant_id`, `username`,
+`password`; substitute `output/` for `output_alt/` if you built with
+the original template instead.)
+
+---
+
 Builds FOLIO mod-organizations-storage JSON objects from delimited legacy
 data — organizations, contact people, interfaces, categories, and
 organization types — per the real FOLIO schemas (see the acq-models repo:
 https://github.com/folio-org/acq-models/tree/master/mod-orgs/schemas).
+It also builds mod-notes `notes` (a completely separate FOLIO module —
+see [Notes](#notes)) attached to each organization.
 
 Building and loading are two separate scripts. `bin/build-organizations`
 (and `process_template.php`) only build and validate JSON — they never
 talk to FOLIO to create anything (with one narrow exception:
-`--folio-config`, which *reads* existing categories/organization types
-so it doesn't invent duplicates — see
+`--folio-config`, which *reads* existing categories/organization/note
+types so it doesn't invent duplicates — see
 [Reference data](#reference-data-categories--organization-types) below).
 [`load_to_folio.php`](load_to_folio.php) is the one that actually POSTs
 the resulting files into a live tenant, in the required order — see
-[Loading the output into FOLIO](#loading-the-output-into-folio). Wiring
-the created contacts'/interfaces' ids back into an organization's own
-`contacts`/`interfaces` arrays is still out of scope (see
-[Limitations](#limitations)) — that's the one thing neither script does.
+[Loading the output into FOLIO](#loading-the-output-into-folio). An
+organization's own `contacts`/`interfaces` arrays are already wired up
+by the build step, for a contact/interface built from that same row —
+see [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)
+— so loading has nothing left to fix up there; see
+[Limitations](#limitations) for what's still genuinely out of scope.
 
-There are two implementations here:
-
-| | Entry point | Style |
-|---|---|---|
-| Procedural | [`build_organizations.php`](build_organizations.php) | Single self-contained script, no setup required. Builds only `organization` objects, exactly one address/phone/email/url/alias each. |
-| Class-based | [`bin/build-organizations`](bin/build-organizations) | Composer package (`src/`), unit tested (`tests/`). Builds all 6 record types, multiple instances of each nested group per organization. |
-
-This document covers the **class-based version**. Use it if you want to
-reuse the pieces (`RecordBuilder`, `FieldMapper`, etc.) elsewhere, want
-test coverage, need more than one address/phone/email/url/alias per
-organization, or need anything beyond a bare `organization` object; use
-the procedural script only if you want to run something with zero setup
-and a single organization object with one of each nested group is enough.
+Composer package (`src/`), unit tested (`tests/`) — see
+[Running the tests](#running-the-tests). Use it directly
+(`bin/build-organizations`) for an already-flat delimited file, or via
+[`process_template.php`](#processing-the-organization_templatexlsx-workbook)/
+[`process_template_alt.php`](README_alternate.md) if your data lives in
+one of the two Excel templates instead.
 
 If your source data is an Excel workbook rather than a delimited file —
 specifically a filled-out copy of the multi-sheet
@@ -66,14 +110,17 @@ One run builds every record type at once, each to its own file:
 | Contacts | `contacts[N].*` columns, 0+ per row | `--contacts-output=PATH` | `contacts.json` |
 | Interfaces | `interfaces[N].*` columns, 0+ per row | `--interfaces-output=PATH` | `interfaces.json` |
 | Interface credentials | that same instance's `interfaces[N].username`/`password`, only if both are present | `--credentials-output=PATH` | `credentials.json` |
+| Notes | `notes[N].*` columns, 0+ per row, only for a row whose organization was accepted — see [Notes](#notes) | `--notes-output=PATH` | `notes.json` |
 | Categories | names seen in any `categories` field, deduplicated | `--categories-output=PATH` | `categories.json` |
 | Organization types | names seen in `organizationTypes`, deduplicated | `--organization-types-output=PATH` | `organization_types.json` |
+| Note types | names seen in any `notes[N].type` column, deduplicated | `--note-types-output=PATH` | `note_types.json` |
 
-Contacts/interfaces/credentials/categories/organization-types default
-filenames land next to `--output`'s directory (or the current directory,
-if `--output` is stdout). **Every default filename ends in `.json`
-regardless of `--format`** — the extension names the file type, not
-whether its content is one JSON array or one-object-per-line; see `--format` below.
+Contacts/interfaces/credentials/notes/categories/organization-types/
+note-types default filenames land next to `--output`'s directory (or
+the current directory, if `--output` is stdout). **Every default
+filename ends in `.json` regardless of `--format`** — the extension
+names the file type, not whether its content is one JSON array or
+one-object-per-line; see `--format` below.
 
 | Option | Default | Description |
 |---|---|---|
@@ -82,15 +129,17 @@ whether its content is one JSON array or one-object-per-line; see `--format` bel
 | `--contacts-output=PATH` | `contacts.json` | See table above. |
 | `--interfaces-output=PATH` | `interfaces.json` | See table above. |
 | `--credentials-output=PATH` | `credentials.json` | See table above. |
+| `--notes-output=PATH` | `notes.json` | See table above. |
 | `--categories-output=PATH` | `categories.json` | See table above. |
 | `--organization-types-output=PATH` | `organization_types.json` | See table above. |
+| `--note-types-output=PATH` | `note_types.json` | See table above. |
 | `--mapping=PATH` | `organization_field_mapping.json` (project root) | Field-mapping file — see below. |
-| `--format=json\|ndjson` | `ndjson` | Applies to all 6 outputs. `ndjson` writes one JSON object per line — the form most loading tools (including a simple line-by-line POST loop) expect; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json` (see above). |
+| `--format=json\|ndjson` | `ndjson` | Applies to all 8 outputs. `ndjson` writes one JSON object per line — the form most loading tools (including a simple line-by-line POST loop) expect; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json` (see above). |
 | `--delimiter=CHAR` | `tab` | Field delimiter — **tab is the normal/expected delimiter for input files.** Accepts a literal character or the names `tab`, `pipe`, `semicolon`, `comma`. |
 | `--enclosure=CHAR` | `"` | Field quote/enclosure character. |
 | `--list-delimiter=STR` | `\|` | Delimiter used *within* a single cell for multi-value fields (e.g. `organizationTypes`). Same convenience names as `--delimiter` are accepted. **Does not apply to `categories`** — a cell listing more than one category name always splits on `;` regardless of this setting (see [Reference data](#reference-data-categories--organization-types)). |
-| `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run.** Every phase (existing-reference-data lookup, organizations, contacts, interfaces + credentials) writes its own `== section ==` block into it, so everything that went wrong (or, with `--folio-config`, everything that was already found to exist) lives in one place. |
-| `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization types are fetched from that tenant first — see [Reference data](#reference-data-categories--organization-types). |
+| `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run.** Every phase (existing-reference-data lookup, organizations, contacts, interfaces + credentials, notes) writes its own `== section ==` block into it, so everything that went wrong (or, with `--folio-config`, everything that was already found to exist) lives in one place. |
+| `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization/note types are fetched from that tenant first — see [Reference data](#reference-data-categories--organization-types). |
 | `--help` | | Print usage. |
 
 Example (the bundled sample file is tab-delimited, so no `--delimiter` is needed):
@@ -141,12 +190,15 @@ Times in this log are in this server's default timezone: UTC.
 
 ### Reference data (categories & organization types)
 
-`categories` (on addresses/phones/emails/urls/aliases/contacts) and
-`organizationTypes` (on organizations) are real FOLIO resources addressed
-by UUID — a legacy file has no way to know those UUIDs ahead of time, so
-in your mapped columns you supply the **name** instead (e.g. `Billing`,
-`Vendor`), and the same name always resolves to the same UUID within one
-run, wherever it appears (see `Organizations\ReferenceRegistry`).
+`categories` (on addresses/phones/emails/urls/aliases/contacts),
+`organizationTypes` (on organizations), and a note's `type` (see
+[Notes](#notes)) are all real FOLIO resources addressed by UUID — a
+legacy file has no way to know those UUIDs ahead of time, so in your
+mapped columns you supply the **name** instead (e.g. `Billing`,
+`Vendor`, `General`), and the same name always resolves to the same
+UUID — not just within one run, but on a completely separate run too,
+since that UUID is deterministic (see the paragraph below) — wherever
+it appears (see `Organizations\ReferenceRegistry`).
 
 A `categories` cell can list more than one name — `categories` is a real
 array on every group that has it, unlike (for example) a URL's `notes`,
@@ -156,19 +208,31 @@ always split on `;` regardless of that setting, since a category name
 itself is free text and more likely to contain the general delimiter's
 default `|` than a `;`.
 
-By default every name is treated as new and gets a freshly generated
-UUID — `categories.json`/`organization_types.json` list everything that
-needs to be created. Pass `--folio-config=PATH` (a FolioConfig INI file —
-`okapiUrl`, `tenant_id`, `username`, `password`) to have it check the
-target tenant first (`GET /organizations-storage/categories` and
-`GET /organizations-storage/organization-types`) and reuse a matching
-name's *real* UUID instead — only names with no existing match end up in
-the output files, so you don't recreate a category/type that's already
-there. Whatever was found is written into the run's error log (an
-`== existing reference data (from FOLIO) ==` section, naming every
-matched category/organization type) — not just a stderr count that
-scrolls away — so there's a permanent record of what already existed
-versus what this run actually created.
+By default every name is treated as new and gets a **deterministic**
+UUID (`uuid5` of FOLIO's own well-known namespace and a `tenant:type:name`
+string — the same convention FOLIO's own migration tooling uses, the
+[`folio_uuid`](https://github.com/FOLIO-FSE/folio_uuid) Python library
+— see `ReferenceRegistry::resolve()`), not a random one: the same name
+always hashes to the same UUID, run after run, so re-processing the
+same legacy data doesn't invent a new UUID for "Billing" every time.
+`categories.json`/`organization_types.json`/`note_types.json` list
+everything that needs to be created. Pass `--folio-config=PATH` (a
+FolioConfig INI file — `okapiUrl`, `tenant_id`, `username`, `password`)
+to have it check the target tenant first (`GET /organizations-storage/categories`,
+`GET /organizations-storage/organization-types`, and `GET /note-types`)
+and reuse a matching name's *real* UUID instead — only names with no
+existing match end up in the output files, so you don't recreate a
+category/type/note-type that's already there. (The tenant id from
+`--folio-config` also becomes part of the hashed string above, so the
+same name gets a different UUID in a different tenant, matching the
+real `folio_uuid` convention exactly; without `--folio-config`, a fixed
+placeholder tenant is used instead — still deterministic, just not
+tenant-scoped.) Whatever was found is
+written into the run's error log (an `== existing reference data (from
+FOLIO) ==` section, naming every matched category/organization
+type/note type) — not just a stderr count that scrolls away — so
+there's a permanent record of what already existed versus what this
+run actually created.
 
 ## Running the tests
 
@@ -176,7 +240,7 @@ versus what this run actually created.
 php vendor/bin/phpunit
 ```
 
-143 tests across `tests/`, covering the mapper's resolution rules
+154 tests across `tests/`, covering the mapper's resolution rules
 (including multi-instance indexing and per-instance sub-mapping), every
 cast/validation path, nested-group behavior, the reference-data registry,
 the xlsx reader and template flattener, file-reading edge cases, and a
@@ -279,8 +343,8 @@ Each of these groups can hold more than one entry per organization — e.g.
 a billing address *and* a shipping address, or a main phone number *and*
 a fax number. `addresses.city` (no bracket) is shorthand for the **first**
 instance, `addresses[1].city`; add `addresses[2].city`, `addresses[3].city`,
-etc. for additional instances. The number of instances the class-based
-builder attempts for a group is exactly however many distinct `[N]`s (plus
+etc. for additional instances. The number of instances the builder
+attempts for a group is exactly however many distinct `[N]`s (plus
 the implicit `[1]`) exist in the mapping file for that group — it's *not*
 capped, and a row that only populates instance 2 (leaving instance 1
 empty) still builds correctly with just one entry.
@@ -311,10 +375,6 @@ to a column of your own if you need explicit control (e.g. to mark a
 Validation errors for a specific instance name it directly, e.g. `Row 5:
 'phoneNumbers[2]' group is missing required field 'phoneNumbers[2].phoneNumber'`.
 
-**This is class-based-version-only.** The procedural
-[`build_organizations.php`](build_organizations.php) still builds exactly
-one instance of each group, full stop — it has no concept of `[N]` indices.
-
 ### All other supported `folio_field` names
 
 Top-level scalars: `id`, `name`, `code`, `status`, `description`,
@@ -339,11 +399,15 @@ brand-new contact/interface objects rather than referencing existing ones.
 ### Contacts and interfaces (standalone records, not nested)
 
 Unlike addresses/phones/emails/urls/aliases/accounts, contacts and
-interfaces are not embedded inside the organization object — they're
+interfaces are not *embedded* inside the organization object — they're
 FOLIO resources in their own right, so each populated instance becomes
-its own record in `contacts.json`/`interfaces.json` rather than an entry
-in the organization's own JSON. The mapping/indexing mechanics are
-otherwise identical (`contacts[1].firstName`, `contacts[2].firstName`, ...).
+its own record in `contacts.json`/`interfaces.json` rather than a
+nested sub-object in the organization's own JSON. (They *are*
+automatically referenced by id from the organization's own `contacts`/
+`interfaces` arrays — see further down — just not embedded the way
+addresses/phones/emails/urls/aliases/accounts are.) The mapping/
+indexing mechanics are otherwise identical (`contacts[1].firstName`,
+`contacts[2].firstName`, ...).
 
 ```
 contacts[N].firstName (required)  contacts[N].lastName (required)
@@ -365,8 +429,14 @@ interfaces[N].username     interfaces[N].password
     (not fields of the interface record itself — see below)
 ```
 
-A contact's job title has no home in the real `contact` schema (see
-`Organizations\Schema\ContactSchema`) and can't be mapped.
+A contact's own "DESCRIPTION" column has no home on the contact itself
+— it isn't a property of the real `contact` schema (see
+`Organizations\Schema\ContactSchema`) — but isn't dropped either: it
+maps to `contacts[N].emails.description`, the contact's email's own
+description, since that's the one place the real schema does have a
+free-text description. (A contact's job title had no home anywhere at
+all, and was removed from the template entirely, along with its
+"TITLE" column.)
 `interfaces[N].type` *is* mapped — the real `interface` schema holds it
 as an array of strings (cell value split on `--list-delimiter`, same as
 any other list field), each validated against the enum above, not as a
@@ -376,9 +446,88 @@ separate FOLIO resource
 `username` + `password`), not a property of the interface itself, so
 when both are present for a given instance, bin/build-organizations
 builds a separate credential record alongside that interface — stamped
-with that interface's own (client-generated) `id` as its `interfaceId` —
+with that interface's own client-generated `id` as its `interfaceId` —
 into `credentials.json`, rather than adding them to the interface object.
 An interface with neither column populated simply gets no credential record.
+
+Both ids are **deterministic**, the same `uuid5` scheme described under
+[Reference data](#reference-data-categories--organization-types), keyed
+by `orgCode:instanceIndex` rather than a name — an interface has no
+required field of its own to hash instead, since the real schema
+doesn't require even a `name`. A credential hashes under a different
+object type than its interface despite sharing the same
+`orgCode:instanceIndex`, so the two don't collide with each other.
+
+A contact's id is deterministic too, but prefers a different legacy
+identifier when one's available: its own first `emails[N].value`,
+lowercased and trimmed, rather than `orgCode:instanceIndex`. A contact
+is a *person*, and a person's email is a more natural, row-independent
+identity than a position within one row — so the same email always
+hashes to the same contact id, **even across different organizations'
+rows**, and `contacts.json` only ever contains that contact once
+(deduplicated by id), not once per organization that mentions them.
+Only a contact with no email mapped falls back to
+`orgCode:instanceIndex`, same as an interface.
+
+**Every organization's own `contacts`/`interfaces` arrays are filled in
+automatically** with the ids of every contact/interface built from that
+same row — merged alongside (not replacing) any literal UUIDs your
+mapping already supplies for `contacts`/`privilegedContacts`/
+`interfaces` (still the only way to reference a record that already
+exists in FOLIO from some *other* import, since those aren't
+name/email-addressable the way this package's own same-row records
+are). `privilegedContacts` specifically has no such auto-linking:
+nothing about a built contact says whether it's "privileged," so that
+array still requires a literal UUID if you want to populate it at all.
+
+### Notes
+
+A note is a completely different FOLIO module from everything else in
+this document — [mod-notes](https://s3.amazonaws.com/foliodocs/api/mod-notes/s/notes.html),
+not mod-organizations-storage. Like contacts/interfaces, each populated
+`notes[N]` instance becomes its own record (in `notes.json`), not a
+nested part of the organization:
+
+```
+notes[N].type (name, required)     notes[N].title (required)
+notes[N].content
+```
+
+`notes[N].type` is a **name** (e.g. `General`, `Follow-up`), resolved to
+a `typeId` UUID the same way `categories`/`organizationTypes` resolve —
+see [Reference data](#reference-data-categories--organization-types).
+`notes[N].content`, when present, is wrapped in `<p>...</p>` before
+being written to `notes.json`, since FOLIO's notes UI renders note
+content as HTML, not plain text.
+
+Two fields of the real `note` schema — `domain` and `links` — aren't
+mapped from any column at all: `domain` is always the fixed string
+`"organizations"` (this package only ever attaches notes to
+organizations, never to any other domain the real schema supports), and
+`links` is a single `[{id, type}]` entry naming the very organization
+the note belongs to, via that organization's own `id`. Since a note is
+meaningless without an organization to attach it to, **a note is only
+ever built for a row whose organization was accepted** — unlike a
+contact or interface, which stand alone regardless of what happens to
+their row's organization.
+
+That has a knock-on effect worth calling out explicitly: **every
+organization this package builds is given a client-generated,
+deterministic `id`** (`uuid5` of the organization's `name`+`code` — the
+same convention [Reference data](#reference-data-categories--organization-types)
+and interfaces/credentials use, not a random one), whether or not it
+ends up with any notes — so `organizations.json` always carries an `id`
+field now, not just when notes are involved. FOLIO honors a
+client-supplied `id` on create, so a note's `links[].id` can simply
+reuse it, exactly the same way `credentials.json` already reuses an
+interface's client-generated `id` as its own `interfaceId` (see
+[Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)).
+Being deterministic rather than random has a useful side effect beyond
+notes: re-running the same import reproduces the exact same
+organization id every time, and the original and alternate templates'
+example data (same organizations, different sheet layout) both hash to
+the *identical* id for the *identical* organization — see
+[the alternate template's docs](README_alternate.md) for that in practice.
 
 ---
 
@@ -388,9 +537,9 @@ FOLIO's own bulk-import workbook (`Organization_Template.xlsx`) has a
 different shape than the flat delimited files above: one "Main Org
 record" row per organization holding just the *primary* address/phone/
 email/url/alias, plus one-to-many child sheets (Alt names, Addresses,
-Phones, Emails, Contact people, Interfaces, Accounts) joined back to
-their organization by "ORG CODE", and a single "Vendor info" row per
-organization. [`process_template.php`](process_template.php) reads that
+Phones, Emails, Contact people, Interfaces, External note, Accounts)
+joined back to their organization by "ORG CODE", and a single "Vendor
+info" row per organization. [`process_template.php`](process_template.php) reads that
 workbook directly and does the job for you:
 
 ```bash
@@ -417,34 +566,19 @@ so it continues the file rather than overwriting it). End to end, it's
 still one log for the whole run, same as running `bin/build-organizations`
 directly.
 
-A contact's job "TITLE" column is read from the template but silently
-dropped — it's not a property of the real `contact` schema, and there's
-nothing to count (unlike the old "Notes" sheet, removed from the
-template entirely rather than kept-but-dropped, since the real
-`organization` schema has no general-purpose free-text notes field
-anywhere — the only `notes` property in the whole schema is `edi.notes`,
-specific to EDI transmission configuration).
-
-Several gaps in the template itself needed filling to reach full schema
-coverage — [`Organization_Template_example_data.xlsx`](Organization_Template_example_data.xlsx)
-(16 example organizations, exercising every column at least once; EBSCO
-alone has multiple aliases, addresses, phones, emails, URLs, contact
-people, and interfaces) shows all of them:
-- The template has no way to record more than one URL per organization —
-  it gained a **"URLs" sheet**, mirroring the existing "Emails" sheet's shape.
-- The template has no organization-type column at all — "Main Org record"
-  gained an **"ORG TYPE" column**, feeding the same name-based
-  `organizationTypes` resolution described in [Reference data](#reference-data-categories--organization-types).
-- The "Interfaces" sheet had no way to record a delivery method — it
-  gained a **"DELIVERY METHOD" column**, mapping to `interfaceN_deliveryMethod`.
-- "Main Org record" had no way to describe, annotate, or categorize its
-  own (primary) URL — it gained **"URL DESCRIPTION"**, **"URL NOTE"**, and
-  **"URL CATEGORIES"** columns, mapping to `url_description`/`url_notes`/
-  `url_categories`. "URL NOTE" is a single free-text string (`urls.notes`
-  isn't a list); "URL CATEGORIES" is one or more category **names**,
-  separated by `;` if more than one — same resolution and delimiter as
-  every other `CATEGORIES` column (see
-  [Reference data](#reference-data-categories--organization-types)).
+A contact's job title had no home anywhere in the real `contact`
+schema, so its "TITLE" column was removed from the template entirely,
+the same way the "Notes" sheet below was — see
+[Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)
+for what "Contact people"'s remaining "DESCRIPTION" column maps to
+instead. The template used to have a plain "Notes" sheet tied
+to the `organization` schema itself, removed entirely (rather than
+kept-but-dropped) since that schema has no general-purpose free-text
+notes field anywhere — the only `notes` property in the whole schema is
+`edi.notes`, specific to EDI transmission configuration. The current
+**"External note"** sheet is an unrelated, later addition — a real
+mod-notes `note`, a completely different FOLIO module — see
+[Notes](#notes).
 
 Every enum-constrained column in the template is a real Excel dropdown
 (data validation), so a filled-out copy can only contain a value the
@@ -528,7 +662,7 @@ a blank template to fill out yourself.
 [`load_to_folio.php`](load_to_folio.php) is a **separate script** from
 `bin/build-organizations`/`process_template.php` — those only ever build
 and validate JSON; this one only ever POSTs already-built JSON. It reads
-the 6 output files and loads them in the order that respects their UUID
+the 8 output files and loads them in the order that respects their UUID
 cross-references (the order matters — see the table below for why):
 
 ```bash
@@ -538,49 +672,62 @@ php load_to_folio.php --folio-config=folio.ini --input-dir=output/            # 
 
 `folio.ini` is a FolioConfig file (`okapiUrl`, `tenant_id`, `username`,
 `password` — same format `bin/build-organizations --folio-config` uses).
-`--input-dir` should point at the directory holding the 6 files (pass
+`--input-dir` should point at the directory holding the 8 files (pass
 `--categories=PATH` etc. individually if they're not all in one place, or
-not named the defaults). Run `php load_to_folio.php --help` for the full
-option list, including how to point it at an `--error-log` of its own
-(same one-file-per-run convention as `bin/build-organizations`).
+not named the defaults — note the underscore in `--organization_types`/
+`--note_types` specifically, not a hyphen; see `--help`). Run
+`php load_to_folio.php --help` for the full option list, including how
+to point it at an `--error-log` of its own (same one-file-per-run
+convention as `bin/build-organizations`).
 
 | Order | File | Endpoint | Depends on |
 |---|---|---|---|
 | 1 | `categories.json` | `POST /organizations-storage/categories` | — |
 | 2 | `organization_types.json` | `POST /organizations-storage/organization-types` | — |
-| 3 | `organizations.json` | `POST /organizations-storage/organizations` | 1, 2 — an organization's nested addresses/phones/emails/urls `categories` and its own `organizationTypes` are UUIDs pointing at records from steps 1–2 |
-| 4 | `contacts.json` | `POST /organizations-storage/contacts` | 1 — a contact's own `categories` field (and its nested groups' `categories`) work the same way |
-| 5 | `interfaces.json` | `POST /organizations-storage/interfaces` | — |
-| 6 | `credentials.json` | `POST /organizations-storage/interfaces/{interfaceId}/credentials` | 5 — each credential's `interfaceId` must match an interface that already exists; the id in the URL path is that same value |
+| 3 | `note_types.json` | `POST /note-types` | — |
+| 4 | `organizations.json` | `POST /organizations-storage/organizations` | 1, 2 — an organization's nested addresses/phones/emails/urls `categories` and its own `organizationTypes` are UUIDs pointing at records from steps 1–2 |
+| 5 | `notes.json` | `POST /notes` | 3, 4 — a note's `typeId` is a UUID from step 3, and its `links[].id` is one of step 4's organizations' own `id` |
+| 6 | `contacts.json` | `POST /organizations-storage/contacts` | 1 — a contact's own `categories` field (and its nested groups' `categories`) work the same way |
+| 7 | `interfaces.json` | `POST /organizations-storage/interfaces` | — |
+| 8 | `credentials.json` | `POST /organizations-storage/interfaces/{interfaceId}/credentials` | 7 — each credential's `interfaceId` must match an interface that already exists; the id in the URL path is that same value |
 
-Concretely: **categories and organization types first** (order between
-those two doesn't matter, but both before step 3), **then organizations
-and contacts** (order between those two doesn't matter either — neither
-references the other; see
+Concretely: **categories, organization types, and note types first**
+(order between those three doesn't matter, but all three before step 4),
+**then organizations, then notes** (notes must come after organizations
+specifically, since `links[].id` names one), **then contacts** (order
+between contacts and organizations/notes doesn't matter — contacts
+reference neither; see
 [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)
 for why), **then interfaces, then credentials last** (credentials must
-come after interfaces specifically, not just somewhere after step 3).
-`load_to_folio.php` always runs the 6 files in exactly this order —
+come after interfaces specifically, not just somewhere after step 4).
+`load_to_folio.php` always runs the 8 files in exactly this order —
 there's no option to change it.
 
 A record that fails to load (FOLIO validation error, duplicate,
 connectivity blip) is logged and skipped — one bad record doesn't abort
 the rest of that file or any later file, matching how
 `bin/build-organizations` itself treats a bad row. **This is not
-idempotent**: re-running against a tenant that already has these exact
-records will generally fail those individual POSTs as duplicates (logged
-the same way as any other failure, not specially detected).
+idempotent** — `load_to_folio.php` never checks whether a record already
+exists before POSTing — but because every id `bin/build-organizations`
+generates is now deterministic (see [Reference data](#reference-data-categories--organization-types)),
+re-running against a tenant that already has these exact records fails
+those individual POSTs as an id conflict rather than silently creating
+duplicates with different ids, the way a random id would have. Still
+logged the same way as any other per-record failure, not specially
+detected or treated as success.
 
 A few things worth knowing about how it works:
 - Every output file is one record per line (`--format=ndjson`, the
   default) or a single JSON array (`--format=json`) — `load_to_folio.php`
   auto-detects which one it's looking at, so either works.
 - The `id` already present on every record in `categories.json`,
-  `organization_types.json`, `interfaces.json`, and `credentials.json`
-  (client-generated by `bin/build-organizations`) is POSTed as-is — FOLIO
-  accepts a caller-supplied `id` on create, and sending the *same* one
-  that's already in `credentials.json`'s `interfaceId` field is exactly
-  what keeps that cross-reference valid. Don't edit those files to strip
+  `organization_types.json`, `note_types.json`, `organizations.json`,
+  `interfaces.json`, and `credentials.json` (deterministically
+  client-generated by `bin/build-organizations` — see [Reference data](#reference-data-categories--organization-types))
+  is POSTed as-is — FOLIO accepts a caller-supplied `id` on create, and
+  sending the *same* one that's already in `credentials.json`'s
+  `interfaceId` field (or `notes.json`'s `links[].id`) is exactly what
+  keeps those cross-references valid. Don't edit those files to strip
   `id` out before loading.
 - `organizations.json` and `contacts.json` records don't reference each
   other, or the contents of `interfaces.json`/`credentials.json` — that
@@ -588,7 +735,8 @@ A few things worth knowing about how it works:
   built by either script (see [Limitations](#limitations)), so there's
   nothing to fix up after loading unless you want to add it yourself.
 - A missing input file (e.g. no `credentials.json` because nothing had
-  login credentials) isn't an error — that phase is just skipped.
+  login credentials, or no `notes.json` because no row had a note)
+  isn't an error — that phase is just skipped.
 
 This is exactly the kind of action — creating records in a shared,
 live system — you should be careful with: always `--dry-run` first,
@@ -598,33 +746,15 @@ and prefer testing against a sandbox/non-prod tenant before a real one.
 
 ## Limitations
 
-- ~~Only one of each nested group per organization.~~ **Resolved for the
-  class-based version** — see
-  [Multiple instances per organization](#multiple-instances-per-organization)
-  above. The procedural `build_organizations.php` still only builds one
-  address/phone/email/url/alias per row; it wasn't changed.
-- ~~`contacts`/`privilegedContacts` are UUID references, not people.~~
-  **Partially resolved:** contact-person and interface *records* can now
-  be built standalone (see
-  [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)),
-  and an interface *is* wired to its own credential record (matching
-  `interfaceId`s — both get a client-generated `id`) — but none of that
-  is linked back into an *organization's* own `contacts`/`interfaces`
-  UUID arrays, since that requires the records to already exist in FOLIO
-  with known ids, which is a loading-time concern, not a building one.
+- **`privilegedContacts` has no way to be populated automatically.**
+  Nothing in the data says which contacts (if any) are privileged, so
+  it still requires a literal UUID for a pre-existing FOLIO record —
+  see [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested).
 - **Entirely unmapped:** `agreements`, `edi` (and its nested `ediFtp`/
-  `ediJob`), `changelogs`, `tags`, `metadata` on organizations. `accounts`
-  *is* now mapped — see
-  [Nested group fields](#nested-group-fields-addresses-phones-emails-urls-aliases-accounts)
-  — and so, as of the most recent additions, are ~~interface login
-  credentials~~ and ~~interface `type`~~ — see
-  [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested).
-- ~~No reference-data resolution.~~ **Resolved for categories and
-  organization types** — see [Reference data](#reference-data-categories--organization-types).
-  `acqUnitIds`, and the `contacts`/`privilegedContacts`/`interfaces`
-  *reference* fields (as opposed to the `contacts[N].*`/`interfaces[N].*`
-  columns that build new records) still require literal UUIDs, since
-  those aren't name-addressable the way categories/organization types are.
+  `ediJob`), `changelogs`, `tags`, `metadata` on organizations.
+- **`acqUnitIds` still requires literal UUIDs**, since it isn't
+  name-addressable the way categories/organization/note types are —
+  see [Reference data](#reference-data-categories--organization-types).
 - **No dedup/upsert.** Each run just builds fresh JSON; besides the
   optional `--folio-config` check for *reference data* specifically, it
   doesn't check FOLIO for an existing organization/contact/interface with

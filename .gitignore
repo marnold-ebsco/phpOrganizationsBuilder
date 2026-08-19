@@ -9,6 +9,7 @@ composer.phar
 # Local run output (logs, and this project's own generated output
 # directories) - never intended to be committed, just build artifacts.
 /logs/
+/output/
 /output_alt/
 /alt_output/
 /out_orig/

@@ -1,5 +1,28 @@
 # Alternate Template & Script
 
+## TL;DR
+
+To process data using this template:
+
+```bash
+php process_template_alt.php --input="Organization_Template_Alternate_example_data.xlsx" --output-dir=output_alt --error-log=output_alt/run.log
+```
+
+Then, once you have output you're happy with, load it into a live
+FOLIO tenant — always `--dry-run` first (see
+[Loading the output into FOLIO](README.md#loading-the-output-into-folio)
+in the main README):
+
+```bash
+php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/ --dry-run
+php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/
+```
+
+(`folio.ini` is a FolioConfig file — `okapiUrl`, `tenant_id`, `username`,
+`password`.)
+
+---
+
 A second workbook/script pair, alongside the ones documented in
 [README.md](README.md), for teams who'd rather enter *every* address,
 phone number, email, URL, and alternative name on its own dedicated
@@ -47,10 +70,11 @@ free-text string (not a list); `CATEGORIES` can hold more than one name,
 [Setting up the field mapping](README.md#setting-up-the-field-mapping)
 in the main README for both.
 
-Every other sheet — "Contact people", "Interfaces", "Vendor info",
-"Accounts" — is unchanged from the original template and works exactly
-as [README.md](README.md) describes. Neither template has a "Notes"
-sheet — see [README.md](README.md#processing-the-organization_templatexlsx-workbook)
+Every other sheet — "Contact people", "Interfaces", "External note",
+"Vendor info", "Accounts" — is unchanged from the original template and
+works exactly as [README.md](README.md) describes, including [Notes](README.md#notes)
+for "External note" specifically. Neither template has a plain "Notes"
+sheet tied to the `organization` schema itself — see [README.md](README.md#processing-the-organization_templatexlsx-workbook)
 for why.
 
 ## Why the script needed almost no changes
@@ -107,20 +131,27 @@ carries the *same* 16 organizations as
 a row on its dedicated sheet instead, marked `IS PRIMARY = Yes`, with
 `FAX` becoming a normal Phones row with `TYPE = Fax`; every pre-existing
 extra row on Alt names/Addresses/Phones/Emails/URLs (the second address,
-third phone, etc.) is kept as-is. Running both templates' example data
-through their respective scripts produces field-for-field identical
-`organizations.json` output (aside from freshly-generated UUIDs for
-categories/organization types, which differ on every run of either
-script) — a useful sanity check if you're verifying a change to either
-flattener.
+third phone, etc.) is kept as-is; the same 5 sample notes on "External
+note" (EBSCO gets two) are carried over unchanged, since that sheet is
+identical between the two templates. Running both templates' example
+data through their respective scripts produces field-for-field
+identical `organizations.json`/`notes.json`/`categories.json`/
+`organization_types.json`/`note_types.json`/`interfaces.json`/
+`credentials.json` output — **including every id**, not just the other
+fields: every id this package generates is deterministic (see
+[Reference data](README.md#reference-data-categories--organization-types)
+in the main README), so the same organization/category/interface hashes
+to the identical UUID regardless of which template built it. A useful
+sanity check if you're verifying a change to either flattener — any
+difference at all (id or otherwise) between the two runs' output is a bug.
 
 Required-column highlighting (the same "Coloured columns are mandatory"
 convention from the original template) is applied consistently: `ORG
 CODE` on every sheet, plus whatever the real FOLIO schema actually marks
 `required` for that record type (`ALT NAME`, `PHONE`, `EMAIL`, `URL`,
 `FIRST NAME`/`LAST NAME`, `ACCOUNT NAME`/`ACCOUNT NUMBER`/`ACCOUNT
-STATUS`). `IS PRIMARY` itself is never required — it's optional on every
-row, per the real schema.
+STATUS`, `NOTE TYPE`/`NOTE TITLE`). `IS PRIMARY` itself is never
+required — it's optional on every row, per the real schema.
 
 Two of the 16 (`RIVERSIDE`, `METRODS`) are still deliberately broken the
 same way as the original — one has an invalid `status`, the other an

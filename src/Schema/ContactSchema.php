@@ -13,9 +13,14 @@ namespace Organizations\Schema;
  * identical sub-schemas (phone_number.json, email.json, address.json,
  * url.json).
  *
- * Two template columns have no home here and are dropped rather than
- * guessed at: a contact's job "TITLE" and a per-contact free-text
- * "DESCRIPTION" aren't properties of the real `contact` schema at all.
+ * The template's "DESCRIPTION" column on "Contact people" has no home
+ * on the contact itself — it isn't a property of the real `contact`
+ * schema at all — but isn't dropped either: it maps to
+ * `contacts[N].emails.description`, the contact's own email's
+ * description, since that's the one place the real schema does have a
+ * free-text description. (An earlier "TITLE" column, for a contact's
+ * job title, genuinely had no home anywhere and was removed from the
+ * template entirely.)
  */
 final class ContactSchema {
     public const SCALAR_FIELDS = [
