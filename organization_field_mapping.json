@@ -1072,6 +1072,48 @@
             "fallback_legacy_field": ""
         },
         {
+            "folio_field": "notes[1].typeId",
+            "legacy_field": "note1_type",
+            "value": "",
+            "description": "The type name of this organization's note #1 (resolved to a note-type UUID)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "notes[1].title",
+            "legacy_field": "note1_title",
+            "value": "",
+            "description": "The title of this organization's note #1",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "notes[1].content",
+            "legacy_field": "note1_content",
+            "value": "",
+            "description": "The body text of this organization's note #1",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "notes[2].typeId",
+            "legacy_field": "note2_type",
+            "value": "",
+            "description": "The type name of this organization's note #2 (resolved to a note-type UUID)",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "notes[2].title",
+            "legacy_field": "note2_title",
+            "value": "",
+            "description": "The title of this organization's note #2",
+            "fallback_legacy_field": ""
+        },
+        {
+            "folio_field": "notes[2].content",
+            "legacy_field": "note2_content",
+            "value": "",
+            "description": "The body text of this organization's note #2",
+            "fallback_legacy_field": ""
+        },
+        {
             "folio_field": "aliases[1].value",
             "legacy_field": "alias_value",
             "value": "",

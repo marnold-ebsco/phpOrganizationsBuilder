@@ -163,25 +163,6 @@ final class ReferenceRegistry {
     }
 
     /**
-     * Generate a random UUID v4 (version/variant nibbles set per RFC 4122),
-     * matching the format {@see \phpFolioClient\FolioUtils::isValidUuid()} accepts.
-     */
-    public static function generateUuidV4(): string {
-        $data = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-        $hex = bin2hex($data);
-        return sprintf(
-            '%s-%s-%s-%s-%s',
-            substr($hex, 0, 8),
-            substr($hex, 8, 4),
-            substr($hex, 12, 4),
-            substr($hex, 16, 4),
-            substr($hex, 20, 12)
-        );
-    }
-
-    /**
      * Generate a deterministic UUID v5 (version/variant nibbles set per
      * RFC 4122): the same `$namespace`/`$name` pair always produces the
      * same UUID. Computed exactly per RFC 4122 §4.3 — SHA-1 of the

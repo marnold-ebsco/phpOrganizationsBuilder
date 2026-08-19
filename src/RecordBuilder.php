@@ -7,21 +7,23 @@ use Organizations\Mapping\FieldMapper;
 use phpFolioClient\FolioUtils;
 
 /**
- * Builds one FOLIO record — organization, contact, or interface, per
- * whichever schema class is given (see {@see \Organizations\Schema\OrganizationSchema},
- * {@see \Organizations\Schema\ContactSchema}, {@see \Organizations\Schema\InterfaceSchema})
- * — from one input row. Resolves each field's raw value via a
- * {@see FieldMapper}, casts/validates it via a {@see ValueCaster} and
- * {@see FolioUtils}, and collects any validation failures rather than
- * throwing.
+ * Builds one FOLIO record — organization, contact, interface, or note,
+ * per whichever schema class is given (see {@see \Organizations\Schema\OrganizationSchema},
+ * {@see \Organizations\Schema\ContactSchema}, {@see \Organizations\Schema\InterfaceSchema},
+ * {@see \Organizations\Schema\NoteSchema}) — from one input row.
+ * Resolves each field's raw value via a {@see FieldMapper}, casts/
+ * validates it via a {@see ValueCaster} and {@see FolioUtils}, and
+ * collects any validation failures rather than throwing.
  *
  * A schema class is any class exposing these `public const` arrays:
- * `SCALAR_FIELDS` (field => cast type: `string`/`bool`/`int`/`number`),
- * `LIST_FIELDS` (field => item type: `string`/`uuid`/`ref:<namespace>`),
- * `LIST_FIELD_ENUMS` (field => allowed values, checked against each item
- * of a `string`-typed list field), `NESTED_GROUPS` (schema array property
- * => group spec, as documented on
- * {@see \Organizations\Schema\OrganizationSchema::NESTED_GROUPS}),
+ * `SCALAR_FIELDS` (field => cast type: `string`/`bool`/`int`/`number`,
+ * or `ref:<namespace>` to resolve a single name through the shared
+ * {@see ReferenceRegistry} instead of casting it — e.g. a note's
+ * `typeId`), `LIST_FIELDS` (field => item type: `string`/`uuid`/
+ * `ref:<namespace>`), `LIST_FIELD_ENUMS` (field => allowed values,
+ * checked against each item of a `string`-typed list field),
+ * `NESTED_GROUPS` (schema array property => group spec, as documented
+ * on {@see \Organizations\Schema\OrganizationSchema::NESTED_GROUPS}),
  * `REQUIRED_FIELDS` (top-level field names), `TOP_LEVEL_ENUMS` (field =>
  * allowed values), and `TOP_LEVEL_PATTERNS` (field => regex).
  */
@@ -77,6 +79,10 @@ final class RecordBuilder {
         foreach ($schemaClass::SCALAR_FIELDS as $field => $type) {
             $raw = $this->mapper->resolve($field, $row);
             if ($raw === null || trim($raw) === '') {
+                continue;
+            }
+            if (str_starts_with($type, 'ref:')) {
+                $record[$field] = $this->registry->resolve(substr($type, strlen('ref:')), $raw, $rowNum);
                 continue;
             }
             $value = $this->caster->cast($raw, $type, $field, $errors, $rowNum);

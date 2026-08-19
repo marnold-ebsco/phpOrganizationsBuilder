@@ -9,15 +9,20 @@ use Organizations\ReferenceRegistry;
 use Organizations\Schema\ContactSchema;
 use Organizations\Schema\InterfaceCredentialSchema;
 use Organizations\Schema\InterfaceSchema;
+use Organizations\Schema\NoteSchema;
 use phpFolioClient\FolioUtils;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Exercises building contact and interface records — the "0+ per row"
- * pattern bin/build-organizations uses via
+ * Exercises building contact, interface, and note records — the "0+ per
+ * row" pattern bin/build-organizations uses via
  * {@see FieldMapper::forInstance()} — against the actual bundled
- * organization_field_mapping.json's `contacts[N].*`/`interfaces[N].*`
- * entries, the same way buildChildRecords() in bin/build-organizations does.
+ * organization_field_mapping.json's `contacts[N].*`/`interfaces[N].*`/
+ * `notes[N].*` entries, the same way buildChildRecords()/buildNotes()
+ * in bin/build-organizations do. `domain` and `links` — the two
+ * {@see NoteSchema} fields bin/build-organizations assembles itself
+ * after {@see RecordBuilder::build()} returns, rather than mapping them
+ * — are deliberately out of scope here; see NoteSchema's docblock.
  */
 final class ChildRecordBuildingTest extends TestCase {
     private FieldMapper $mapper;
@@ -197,5 +202,76 @@ final class ChildRecordBuildingTest extends TestCase {
         $result = $builder->build(['interface1_name' => 'No Credentials Here'], 2);
 
         $this->assertSame([], $result->getRecord());
+    }
+
+    public function testBuildsTwoNotesFromOneRow(): void {
+        $notes = $this->buildAll('notes', NoteSchema::class, [
+            'note1_type' => 'General',
+            'note1_title' => 'First contact',
+            'note1_content' => 'Called about renewal',
+            'note2_type' => 'Follow-up',
+            'note2_title' => 'Check back next quarter',
+        ]);
+
+        $this->assertCount(2, $notes);
+        $this->assertSame('First contact', $notes[0]['title']);
+        $this->assertSame('Called about renewal', $notes[0]['content']);
+        $this->assertSame('Check back next quarter', $notes[1]['title']);
+        $this->assertArrayNotHasKey('content', $notes[1]);
+    }
+
+    public function testNoteMissingRequiredTitleIsReported(): void {
+        $subMapper = $this->mapper->forInstance('notes', 1);
+        $builder = new RecordBuilder($subMapper, $this->caster, $this->folioUtils, NoteSchema::class, '|', $this->registry);
+
+        $result = $builder->build(['note1_type' => 'General'], 2);
+
+        $this->assertContains("Row 2: missing required field 'title'", $result->getErrors());
+    }
+
+    public function testRowWithNoNoteDataBuildsNoNotes(): void {
+        $notes = $this->buildAll('notes', NoteSchema::class, [
+            'name' => 'No Notes Co',
+        ]);
+
+        $this->assertSame([], $notes);
+    }
+
+    public function testNoteTypeNameResolvesThroughSharedRegistry(): void {
+        $notes = $this->buildAll('notes', NoteSchema::class, [
+            'note1_type' => 'General',
+            'note1_title' => 'First contact',
+        ]);
+
+        $this->assertSame($this->registry->resolve('noteType', 'General'), $notes[0]['typeId']);
+    }
+
+    public function testNoteRecordHasNoDomainOrLinksAtThisLayer(): void {
+        // domain and links are assembled by buildNotes() in
+        // bin/build-organizations, not by RecordBuilder/NoteSchema — see
+        // NoteSchema's docblock for why domain specifically can't be a
+        // hardcoded mapping-file value (it would make an unused instance
+        // look non-empty and defeat the empty-record skip below).
+        $notes = $this->buildAll('notes', NoteSchema::class, [
+            'note1_type' => 'General',
+            'note1_title' => 'First contact',
+        ]);
+
+        $this->assertArrayNotHasKey('domain', $notes[0]);
+        $this->assertArrayNotHasKey('links', $notes[0]);
+    }
+
+    public function testUnusedNoteInstanceBuildsEmptyNotAFalseRequiredFieldError(): void {
+        // Regression test: notes[2] has nothing mapped here, so it must
+        // resolve to a genuinely empty record (and therefore be skipped
+        // by buildAll()/buildNotes() alike) rather than spuriously
+        // "having" just a hardcoded domain and then failing required-field
+        // validation for the typeId/title that were never meant to apply.
+        $notes = $this->buildAll('notes', NoteSchema::class, [
+            'note1_type' => 'General',
+            'note1_title' => 'First contact',
+        ]);
+
+        $this->assertCount(1, $notes);
     }
 }

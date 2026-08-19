@@ -8,32 +8,47 @@ use Organizations\Io\XlsxReader;
  * Flattens a filled-out copy of the multi-sheet Organization_Template.xlsx
  * workbook — one "Main Org record" row per organization, plus one-to-many
  * child sheets (Alt names, Addresses, Phones, Emails, URLs, Contact
- * people, Interfaces, Accounts) joined by "ORG CODE", and a single
- * "Vendor info" row per organization — into the flat, indexed-column row
- * format {@see Mapping\FieldMapper} and {@see RecordBuilder} already
- * understand (`address2_city`, `phoneNumbers[3]`, etc.), one row per
- * organization.
+ * people, Interfaces, External note, Accounts) joined by "ORG CODE", and
+ * a single "Vendor info" row per organization — into the flat, indexed-
+ * column row format {@see Mapping\FieldMapper} and {@see RecordBuilder}
+ * already understand (`address2_city`, `phoneNumbers[3]`, etc.), one row
+ * per organization.
  *
  * This class does *only* the Excel-specific flattening; it doesn't build
  * or validate any records itself — see process_template.php, which feeds
  * {@see flatten()}'s output to bin/build-organizations for that.
  *
- * A couple of things read from the template have no destination in the
- * real FOLIO `contact`/`interface` schemas and are deliberately dropped:
- * the "TITLE" column on "Contact people" (not a property of the real
- * `contact` schema — see {@see Schema\ContactSchema}), and the
+ * One thing read from the template has no destination in the real
+ * FOLIO `interface` schema and is deliberately dropped: the
  * "DESCRIPTION" column on "Interfaces" (see {@see Schema\InterfaceSchema}).
- * "Interfaces"' USERNAME/PASSWORD columns *are* mapped (to
+ * "Contact people"'s own "DESCRIPTION" column, by contrast, *is* mapped
+ * — to `contacts[N].emails.description`, the contact's email's
+ * description, not a property of the contact itself (see
+ * {@see Schema\ContactSchema}). An earlier "TITLE" column on "Contact
+ * people", for a contact's job title, genuinely had no home anywhere
+ * and was removed from the template entirely, the same way the plain
+ * "Notes" sheet below was.
+ * "Interfaces"' own USERNAME/PASSWORD columns *are* mapped (to
  * `interfaceN_username`/`interfaceN_password`) — bin/build-organizations
  * turns those into a companion `Schema\InterfaceCredentialSchema` record,
- * not part of the interface object itself. The template used to also
- * have a "Notes" sheet, removed entirely (rather than kept-but-dropped)
+ * not part of the interface object itself. There used to be a plain
+ * "Notes" sheet here too, removed entirely (rather than kept-but-dropped)
  * since the real `organization` schema has no general-purpose free-text
- * notes field anywhere — the only `notes` property in the whole schema
- * is `edi.notes`, specific to EDI transmission configuration, not a
- * general comment field. A URL's own `notes` *is* real, but it's a
- * single string (not a list, unlike `categories`) — hence the singular
- * "URL NOTE"/"NOTE" column names, deliberately not "NOTES".
+ * notes field of its own anywhere — the only `notes` property in the
+ * whole schema is `edi.notes`, specific to EDI transmission
+ * configuration. A URL's own `notes` *is* real, but it's a single string
+ * (not a list, unlike `categories`) — hence the singular "URL NOTE"/
+ * "NOTE" column names, deliberately not "NOTES".
+ *
+ * "External note" is a different thing entirely: a mod-notes `note`
+ * (see {@see Schema\NoteSchema}), a completely separate FOLIO resource
+ * from mod-organizations-storage, attached to an organization by a
+ * `links[].id` reference bin/build-organizations assembles at build
+ * time (this class only flattens the sheet's three columns into
+ * `noteN_type`/`noteN_title`/`noteN_content`, same numbering convention
+ * as "Contact people"/"Interfaces" — no Main Org record slot for
+ * instance 1, since a note is entirely optional and there's no single
+ * "primary" one).
  */
 final class TemplateFlattener {
     /**
@@ -52,6 +67,7 @@ final class TemplateFlattener {
         $urls = $this->groupByOrgCode($this->readSheetRows($reader, 'URLs', 1));
         $contacts = $this->groupByOrgCode($this->readSheetRows($reader, 'Contact people', 1));
         $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 1));
+        $externalNotes = $this->groupByOrgCode($this->readSheetRows($reader, 'External note', 1));
         $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 1));
         $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 1));
 
@@ -138,7 +154,6 @@ final class TemplateFlattener {
             }
 
             // Contact people sheet -> contacts 1, 2, ... (own top-level records, not nested)
-            // TITLE has no home in the real `contact` schema and is dropped.
             $index = 1;
             foreach ($contacts[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'FIRST NAME', "contact{$index}_firstName");
@@ -165,6 +180,18 @@ final class TemplateFlattener {
                 $this->copy($flat, $row, 'NOTES', "interface{$index}_notes");
                 $this->copy($flat, $row, 'USERNAME', "interface{$index}_username");
                 $this->copy($flat, $row, 'PASSWORD', "interface{$index}_password");
+                $index++;
+            }
+
+            // External note sheet -> notes 1, 2, ... (own top-level mod-notes
+            // records, tied to this organization via a `links[].id` that
+            // bin/build-organizations assembles once it knows this
+            // organization's own id, not embedded in the organization here).
+            $index = 1;
+            foreach ($externalNotes[$key] ?? [] as $row) {
+                $this->copy($flat, $row, 'NOTE TYPE', "note{$index}_type");
+                $this->copy($flat, $row, 'NOTE TITLE', "note{$index}_title");
+                $this->copy($flat, $row, 'CONTENTS', "note{$index}_content");
                 $index++;
             }
 

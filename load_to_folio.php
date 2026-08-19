@@ -3,25 +3,29 @@
 /**
  * load_to_folio.php
  *
- * Loads the 6 output files bin/build-organizations produces into a live
+ * Loads the 8 output files bin/build-organizations produces into a live
  * FOLIO tenant, in the dependency-respecting order documented in
  * README.md ("Loading the output into FOLIO"):
  *
  *   1. categories.json           -> POST /organizations-storage/categories
  *   2. organization_types.json   -> POST /organizations-storage/organization-types
- *   3. organizations.json        -> POST /organizations-storage/organizations
- *   4. contacts.json             -> POST /organizations-storage/contacts
- *   5. interfaces.json           -> POST /organizations-storage/interfaces
- *   6. credentials.json          -> POST /organizations-storage/interfaces/{interfaceId}/credentials
+ *   3. note_types.json           -> POST /note-types
+ *   4. organizations.json        -> POST /organizations-storage/organizations
+ *   5. notes.json                -> POST /notes
+ *   6. contacts.json             -> POST /organizations-storage/contacts
+ *   7. interfaces.json           -> POST /organizations-storage/interfaces
+ *   8. credentials.json          -> POST /organizations-storage/interfaces/{interfaceId}/credentials
  *
  * This is a deliberately separate script from bin/build-organizations
  * and process_template.php — those only ever build/validate JSON and
  * never touch a FOLIO instance; this one only ever POSTs already-built
  * JSON and never builds or validates anything. Each object is sent
- * exactly as found in its file, including its pre-assigned `id` (and,
- * for credentials, `interfaceId`) — see README.md for why reusing those
- * ids (rather than letting FOLIO generate new ones) is required for
- * `credentials.json` to correctly reference `interfaces.json`.
+ * exactly as found in its file, including its pre-assigned `id` (every
+ * organization has one — see README.md — and, for credentials,
+ * `interfaceId`) — see README.md for why reusing those ids (rather than
+ * letting FOLIO generate new ones) is required for `credentials.json`
+ * to correctly reference `interfaces.json`, and `notes.json` to
+ * correctly reference `organizations.json` via each note's `links[].id`.
  *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
@@ -38,14 +42,16 @@
  *   --folio-config=PATH        FolioConfig INI file (okapiUrl, tenant_id,
  *                               username, password — see phpFolioClient's
  *                               FolioConfig). Required unless --dry-run.
- *   --input-dir=PATH            Directory holding the 6 files described
+ *   --input-dir=PATH            Directory holding the 8 files described
  *                               above (default: current directory).
  *   --categories=PATH           Override individual file paths (default:
- *   --organization-types=PATH   "{input-dir}/{name}.json" for each, matching
- *   --organizations=PATH        bin/build-organizations's own default
- *   --contacts=PATH              filenames).
- *   --interfaces=PATH
- *   --credentials=PATH
+ *   --organization_types=PATH   "{input-dir}/{name}.json" for each, matching
+ *   --note_types=PATH           bin/build-organizations's own default
+ *   --organizations=PATH        filenames). Note the underscore in
+ *   --notes=PATH                 --organization_types/--note_types (not a
+ *   --contacts=PATH              hyphen) — it must match the phase's file
+ *   --interfaces=PATH            basename exactly, same as every other
+ *   --credentials=PATH           override here.
  *   --error-log=PATH             Log file for this run — one file covering
  *                               every phase, same convention as
  *                               bin/build-organizations (default: a fresh,
@@ -58,8 +64,9 @@
  *   --help                      Show this message.
  *
  * A missing input file is not an error — that phase is simply skipped
- * (0 records), since not every run necessarily produces all 6 (e.g. no
- * organization used any category, or no interface had credentials).
+ * (0 records), since not every run necessarily produces all 8 (e.g. no
+ * organization used any category, no interface had credentials, or no
+ * row had a note).
  * Both single-JSON-array and one-object-per-line (ndjson) files are
  * accepted, auto-detected per file — bin/build-organizations's
  * --format option controls which one it writes, but this script reads either.
@@ -83,7 +90,9 @@ const PROJECT_ROOT = __DIR__;
 const PHASES = [
     ['categories', '/organizations-storage/categories', 'categories'],
     ['organization_types', '/organizations-storage/organization-types', 'organization types'],
+    ['note_types', '/note-types', 'note types'],
     ['organizations', '/organizations-storage/organizations', 'organizations'],
+    ['notes', '/notes', 'notes'], // must load after organizations - each note's links[].id names one
     ['contacts', '/organizations-storage/contacts', 'contacts'],
     ['interfaces', '/organizations-storage/interfaces', 'interfaces'],
     ['credentials', null, 'interface credentials'], // endpoint depends on each record's interfaceId
@@ -136,7 +145,9 @@ function recordLabel(string $phaseFile, array $record): string {
     return match ($phaseFile) {
         'categories' => (string) ($record['value'] ?? '(no value)'),
         'organization_types' => (string) ($record['name'] ?? '(no name)'),
+        'note_types' => (string) ($record['name'] ?? '(no name)'),
         'organizations' => (string) ($record['code'] ?? $record['name'] ?? '(no code)'),
+        'notes' => (string) ($record['title'] ?? '(no title)'),
         'contacts' => trim(($record['firstName'] ?? '') . ' ' . ($record['lastName'] ?? '')) ?: '(no name)',
         'interfaces' => (string) ($record['name'] ?? '(no name)'),
         'credentials' => (string) ($record['username'] ?? '(no username)') . ' (interfaceId=' . ($record['interfaceId'] ?? '?') . ')',

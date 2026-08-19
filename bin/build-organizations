@@ -13,40 +13,47 @@
  *   - interfaces     (0+ per row)           -> --interfaces-output
  *   - interfaceCredentials (0+ per row, one per interface with both a
  *                    username and password mapped)  -> --credentials-output
+ *   - notes          (0+ per row, only for an accepted organization) -> --notes-output
  *   - categories     (deduplicated, derived) -> --categories-output
  *   - organizationTypes (deduplicated, derived) -> --organization-types-output
+ *   - noteTypes      (deduplicated, derived) -> --note-types-output
  *
- * Contacts and interfaces are *not* linked back into an organization's
- * own `contacts`/`interfaces` UUID-reference arrays — those point at
- * records that must already exist in the target FOLIO tenant, which is a
- * loading-time concern, not a building one. `categories` and
- * `organizationTypes`, by contrast, are resolved automatically: wherever
- * a category or organization-type *name* appears in the input (e.g. an
- * address's category, an org's organizationTypes column), a fresh UUID
- * is generated for it the first time it's seen and reused every time
- * after — see {@see \Organizations\ReferenceRegistry}. That's why those
- * two files always come out fully wired up, while contacts/interfaces
- * are standalone objects the loading step must create and link itself.
+ * Every organization built here is given a client-generated,
+ * deterministic `id` (FOLIO honors a client-supplied id on create — see
+ * {@see computeOrganizationId()}), and every contact/interface built
+ * from that same row is given one too (see {@see buildChildRecords()}/
+ * {@see buildInterfacesAndCredentials()}) — so an organization's own
+ * `contacts`/`interfaces` arrays get filled in with those same-row ids
+ * automatically (merged with, not replacing, any literal UUID a column
+ * already mapped for a record that exists elsewhere in FOLIO); each
+ * credential built alongside an interface is stamped with a matching,
+ * equally deterministic `interfaceId`; and `notes.json` is wired to
+ * `organizations.json` via each note's `links[].id`. `categories`,
+ * `organizationTypes`, and `noteTypes` are resolved the same
+ * deterministic way: wherever one of those *names* appears in the
+ * input (e.g. an address's category, an org's organizationTypes
+ * column, a note's type), a deterministic UUID is computed for it the
+ * first time it's seen and reused every time after — see
+ * {@see \Organizations\ReferenceRegistry}. `privilegedContacts` is the
+ * one reference field left unresolved: nothing in the data says which
+ * contacts (if any) are privileged, so it still requires a literal
+ * UUID for a pre-existing record.
  *
- * Credentials are the one exception among the "standalone" types: each
- * interface record built here is given a client-generated `id`, and any
- * credential built alongside it (from that same instance's `username`/
- * `password` columns) is stamped with a matching `interfaceId` — so
- * `interfaces.json` and `credentials.json` *are* wired to each other,
- * even though neither is wired back into the organization.
+ * Deterministic (not random) ids mean re-running the same import
+ * reproduces the exact same ids rather than inventing new ones each
+ * time — see {@see computeDeterministicId()}. A note is only ever
+ * built for a row whose organization was accepted — see `buildNotes()`
+ * for why.
  *
  * See \Organizations\RecordBuilder, \Organizations\Mapping\FieldMapper,
  * \Organizations\Io\DelimitedFileReader, \Organizations\Io\ErrorLog,
  * \Organizations\RecordFileImporter, and the schema classes under
  * \Organizations\Schema for the field mapping/validation rules.
  *
- * One thing that IS different from the procedural ../build_organizations.php:
- * this version supports multiple instances of a nested group (addresses,
+ * This supports multiple instances of a nested group (addresses,
  * phoneNumbers, emails, urls, aliases, accounts) per organization, via
  * `folio_field` entries like `addresses[2].city` in the mapping file —
- * see FieldMapper::indicesFor(). The procedural script only ever builds
- * one of each, and has no concept of contacts/interfaces/categories/
- * organization types at all.
+ * see FieldMapper::indicesFor().
  *
  * Usage:
  *   php bin/build-organizations --input=orgs.tsv [options]
@@ -59,9 +66,11 @@
  *   --interfaces-output=PATH        Interfaces output file (default: interfaces.json, similarly).
  *   --credentials-output=PATH       Interface credentials output file (default:
  *                                   credentials.json, similarly).
+ *   --notes-output=PATH             Notes output file (default: notes.json, similarly).
  *   --categories-output=PATH        Categories output file (default: categories.json, similarly).
  *   --organization-types-output=PATH Organization types output file (default:
  *                                   organization_types.json, similarly).
+ *   --note-types-output=PATH        Note types output file (default: note_types.json, similarly).
  *   --mapping=PATH                  Field-mapping JSON file (default:
  *                                   organization_field_mapping.json at the
  *                                   project root — see FieldMapper).
@@ -88,20 +97,30 @@
  *   --folio-config=PATH             Optional FolioConfig INI file (okapiUrl,
  *                                   tenant_id, username, password — see
  *                                   phpFolioClient's FolioConfig). When given,
- *                                   existing categories and organization types
- *                                   are fetched from that FOLIO tenant first,
- *                                   via GET /organizations-storage/categories
- *                                   and GET /organizations-storage/organization-types,
- *                                   and reused by name instead of generating a
- *                                   new UUID for a name that already exists
- *                                   there. Without this option (the default),
- *                                   every category/organization-type name is
+ *                                   existing categories, organization types,
+ *                                   and note types are fetched from that FOLIO
+ *                                   tenant first, via GET /organizations-storage/categories,
+ *                                   GET /organizations-storage/organization-types,
+ *                                   and GET /note-types, and reused by name
+ *                                   instead of generating a new UUID for a
+ *                                   name that already exists there. Without
+ *                                   this option (the default), every category/
+ *                                   organization-type/note-type name is
  *                                   treated as new — nothing is checked, since
  *                                   there's nothing to check it against. Also
  *                                   used to look up the tenant's own configured
  *                                   timezone (if any), so every timestamp this
  *                                   run logs uses that instead of the server's
- *                                   default — see determineTenantTimezone().
+ *                                   default — see determineTenantTimezone() —
+ *                                   and as the tenant id mixed into every
+ *                                   deterministic id this run generates (see
+ *                                   computeDeterministicId()), so the same
+ *                                   name/organization/interface hashes to a
+ *                                   different id in a different tenant.
+ *                                   Without this option, a fixed placeholder
+ *                                   tenant is used instead — ids are still
+ *                                   fully deterministic run-to-run, just not
+ *                                   tenant-scoped.
  *   --help                          Show this message.
  */
 
@@ -121,10 +140,50 @@ use Organizations\ReferenceRegistry;
 use Organizations\Schema\ContactSchema;
 use Organizations\Schema\InterfaceCredentialSchema;
 use Organizations\Schema\InterfaceSchema;
+use Organizations\Schema\NoteSchema;
 use Organizations\Schema\OrganizationSchema;
 use phpFolioClient\FolioUtils;
 
 const PROJECT_ROOT = __DIR__ . '/..';
+
+/**
+ * Deterministic id for one record, following the same `folio_uuid`
+ * convention {@see ReferenceRegistry::resolve()} uses for categories/
+ * organizationTypes/noteTypes: `uuid5(ReferenceRegistry::FOLIO_NAMESPACE,
+ * "{tenant}:{objectType}:{legacyId}")`. The same `$tenant`/`$objectType`/
+ * `$legacyId` always hashes to the same id, so re-running an import
+ * reproduces identical ids rather than inventing new ones each time —
+ * see {@see computeOrganizationId()} and `buildInterfacesAndCredentials()`
+ * for how `$legacyId` is built for each record type this file generates
+ * an id for.
+ *
+ * @param $tenant     Tenant id from `--folio-config`, or the fixed
+ *                     placeholder `'offline'` when running without one
+ *                     (the default) — see `main()`.
+ * @param $objectType Distinguishes one record type's ids from another's
+ *                     even if they happen to share a `$legacyId` (e.g.
+ *                     an interface and its credential, keyed by the same
+ *                     `orgCode:instanceIndex`).
+ * @param $legacyId   Whatever identifies this specific record within
+ *                     its own type — not required to be globally unique
+ *                     by itself, only combined with `$objectType`.
+ */
+function computeDeterministicId(string $tenant, string $objectType, string $legacyId): string {
+    $combined = implode(':', [$tenant, $objectType, $legacyId]);
+    return ReferenceRegistry::generateUuidV5(ReferenceRegistry::FOLIO_NAMESPACE, $combined);
+}
+
+/**
+ * Deterministic organization id: `$legacyId` is this organization's
+ * `name`/`code` colon-joined (rather than concatenated directly, so e.g.
+ * name `AB`+code `C` can't collide with name `A`+code `BC`) — see
+ * {@see computeDeterministicId()} for the rest of the scheme. A note
+ * (see `buildNotes()`) references an organization's id deterministically
+ * this same way.
+ */
+function computeOrganizationId(string $tenant, string $name, string $code): string {
+    return computeDeterministicId($tenant, 'organizations', trim($name) . ':' . trim($code));
+}
 
 function printHelp(): void {
     $source = file_get_contents(__FILE__);
@@ -215,8 +274,19 @@ function seedRegistryFromFolio(FolioClient $client, ReferenceRegistry $registry,
         count($typeNames),
         $typeNames === [] ? '.' : ': ' . implode(', ', $typeNames) . '.'
     ));
-    $errorLog->write('');
     fwrite(STDERR, sprintf("Seeded %d existing organization type(s) from FOLIO.\n", count($typeNames)));
+
+    foreach ($client->getAll('/note-types') as $noteType) {
+        $registry->seed('noteType', $noteType->name, $noteType->id);
+    }
+    $noteTypeNames = $registry->getSeededNames('noteType');
+    $errorLog->write(sprintf(
+        'Found %d existing note type(s) already in FOLIO%s',
+        count($noteTypeNames),
+        $noteTypeNames === [] ? '.' : ': ' . implode(', ', $noteTypeNames) . '.'
+    ));
+    $errorLog->write('');
+    fwrite(STDERR, sprintf("Seeded %d existing note type(s) from FOLIO.\n", count($noteTypeNames)));
 }
 
 /** Write a list of records to a path (or stdout) as json or ndjson. */
@@ -342,17 +412,46 @@ function logOrphanReferenceNotes(
 
 /**
  * Build every populated instance of a top-level multi-instance child
- * record (contacts, interfaces) across every row of the input file.
+ * record (currently only `contacts` — `interfaces` has its own
+ * {@see buildInterfacesAndCredentials()}, since it also builds a
+ * companion credential record) across every row of the input file.
  * Unlike organizations (exactly one record per row), a row can yield
  * zero, one, or several of these — one per populated
  * `{$schemaKey}[N].*` instance.
+ *
+ * Each built record is given a deterministic id (see
+ * {@see computeDeterministicId()}), preferring the record's own first
+ * `emails[0].value` as the legacy identifier when present — a contact's
+ * email is a more natural, person-level identity than a row/instance
+ * position, and (deliberately) hashes the *same* contact to the *same*
+ * id even if they're listed as a contact for more than one organization
+ * in the legacy data. Falls back to `orgCode:instanceIndex` (matching
+ * {@see buildInterfacesAndCredentials()}'s interfaces) when there's no
+ * email to key off.
+ *
+ * Because the same id can legitimately turn up on more than one row
+ * this way (the shared-email case above), `$records`/`$recordRowNumbers`
+ * are deduplicated by id before being returned — the *first* row to
+ * introduce a given id is the one that "built" it for
+ * {@see writeRecords()}'s/{@see logOrphanNotes()}'s purposes, so
+ * `contacts.json` never ends up with two identical entries sharing one
+ * id (which would fail as a duplicate-id conflict the second time
+ * `load_to_folio.php` tries to `POST` it). `$idsByRowNumber`, by
+ * contrast, is *not* deduplicated: it names every id each row resolved,
+ * including a row that only ever referenced an id some earlier row
+ * already introduced — see `main()`, which uses it to fill in each
+ * organization's own `contacts` array with every same-row record's id,
+ * deduplicated or not.
  *
  * Writes this section's validation errors into an already-open error
  * log (not opened or closed here — see {@see \Organizations\RecordFileImporter}
  * for why: one bin/build-organizations run shares a single log file
  * across every build phase).
  *
- * @return array{0: list<array>, 1: list<int>, 2: bool} [built records, each record's origin row number (same order), hadErrors]
+ * @return array{0: list<array>, 1: list<int>, 2: array<int, list<string>>, 3: bool}
+ *         [deduplicated built records, each one's first-introduced row
+ *         number (same order), row number => every id that row resolved
+ *         (not deduplicated), hadErrors]
  */
 function buildChildRecords(
     string $inputPath,
@@ -365,6 +464,7 @@ function buildChildRecords(
     FolioUtils $folioUtils,
     string $listDelimiter,
     ?ReferenceRegistry $registry,
+    string $tenant,
     ErrorLog $errorLog
 ): array {
     $errorLog->write("== {$schemaKey} ==");
@@ -374,10 +474,13 @@ function buildChildRecords(
 
     $records = [];
     $recordRowNumbers = [];
+    $seenIds = [];
+    $idsByRowNumber = [];
     $hadErrors = false;
     $indices = $mapper->indicesFor($schemaKey);
 
     foreach ($reader->rows() as $rowNum => $rowAssoc) {
+        $orgCode = trim((string) ($mapper->resolve('code', $rowAssoc) ?? ''));
         foreach ($indices as $index) {
             $subMapper = $mapper->forInstance($schemaKey, $index);
             $builder = new RecordBuilder($subMapper, $caster, $folioUtils, $schemaClass, $listDelimiter, $registry);
@@ -394,8 +497,21 @@ function buildChildRecords(
                 $errorLog->write('');
                 continue;
             }
-            $records[] = $result->getRecord();
-            $recordRowNumbers[] = $rowNum;
+
+            $record = $result->getRecord();
+            $email = $record['emails'][0]['value'] ?? null;
+            $legacyId = is_string($email) && trim($email) !== ''
+                ? strtolower(trim($email))
+                : "{$orgCode}:{$index}";
+            $id = computeDeterministicId($tenant, $schemaKey, $legacyId);
+            $record['id'] = $id;
+
+            $idsByRowNumber[$rowNum][] = $id;
+            if (!isset($seenIds[$id])) {
+                $seenIds[$id] = true;
+                $records[] = $record;
+                $recordRowNumbers[] = $rowNum;
+            }
         }
     }
     $reader->close();
@@ -403,16 +519,20 @@ function buildChildRecords(
     $errorLog->write(sprintf('Built %d %s record(s).', count($records), $schemaKey));
     $errorLog->write('');
 
-    return [$records, $recordRowNumbers, $hadErrors];
+    return [$records, $recordRowNumbers, $idsByRowNumber, $hadErrors];
 }
 
 /**
  * Build every populated interface instance across every row, same as
  * {@see buildChildRecords()} for `interfaces`, but also: assigns each
- * interface a client-generated `id`, and — if that same instance's
- * `username`/`password` columns are both populated — builds a matching
- * {@see InterfaceCredentialSchema} record stamped with that interface's
- * `id` as its `interfaceId`.
+ * interface a deterministic `id` (see {@see computeDeterministicId()}),
+ * keyed by `orgCode:instanceIndex` since an interface has no required
+ * field of its own to use as a legacy identifier — and — if that same
+ * instance's `username`/`password` columns are both populated — builds
+ * a matching {@see InterfaceCredentialSchema} record, deterministic the
+ * same way (under a different object type, so it doesn't collide with
+ * its interface's own id despite sharing the same `orgCode:instanceIndex`),
+ * stamped with that interface's `id` as its `interfaceId`.
  *
  * Writes this section's validation errors into an already-open error
  * log (not opened or closed here — see {@see buildChildRecords()}).
@@ -429,6 +549,7 @@ function buildInterfacesAndCredentials(
     ValueCaster $caster,
     FolioUtils $folioUtils,
     string $listDelimiter,
+    string $tenant,
     ErrorLog $errorLog
 ): array {
     $errorLog->write('== interfaces ==');
@@ -444,6 +565,7 @@ function buildInterfacesAndCredentials(
     $indices = $mapper->indicesFor('interfaces');
 
     foreach ($reader->rows() as $rowNum => $rowAssoc) {
+        $orgCode = trim((string) ($mapper->resolve('code', $rowAssoc) ?? ''));
         foreach ($indices as $index) {
             $subMapper = $mapper->forInstance('interfaces', $index);
             $builder = new RecordBuilder($subMapper, $caster, $folioUtils, InterfaceSchema::class, $listDelimiter);
@@ -461,8 +583,9 @@ function buildInterfacesAndCredentials(
                 continue;
             }
 
+            $legacyId = "{$orgCode}:{$index}";
             $interfaceRecord = $result->getRecord();
-            $interfaceId = ReferenceRegistry::generateUuidV4();
+            $interfaceId = computeDeterministicId($tenant, 'interfaces', $legacyId);
             $interfaceRecord['id'] = $interfaceId;
             $interfaces[] = $interfaceRecord;
             $interfaceRowNumbers[] = $rowNum;
@@ -483,7 +606,7 @@ function buildInterfacesAndCredentials(
             }
 
             $credential = $credentialResult->getRecord();
-            $credential['id'] = ReferenceRegistry::generateUuidV4();
+            $credential['id'] = computeDeterministicId($tenant, 'interfaceCredentials', $legacyId);
             $credential['interfaceId'] = $interfaceId;
             $credentials[] = $credential;
             $credentialRowNumbers[] = $rowNum;
@@ -495,6 +618,103 @@ function buildInterfacesAndCredentials(
     $errorLog->write('');
 
     return [$interfaces, $interfaceRowNumbers, $credentials, $credentialRowNumbers, $hadErrors];
+}
+
+/**
+ * Build every populated note instance across every row — same general
+ * shape as {@see buildChildRecords()} for `notes`, but with two
+ * differences that set notes apart from every other "standalone" child
+ * record type this file builds:
+ *
+ *   - A note is only built for a row whose organization was *accepted*.
+ *     Unlike a contact or interface (independent records that stand on
+ *     their own), a note's `links[].id` must name a real organization —
+ *     with no accepted organization for this row, there's nothing for
+ *     the note to attach to, so it's skipped (logged, not silently
+ *     dropped) rather than built as an orphan.
+ *   - Each instance's `type` column resolves to a `typeId` UUID through
+ *     the shared {@see ReferenceRegistry} (namespace `noteType`), the
+ *     same name-to-UUID mechanism `category`/`organizationType` already
+ *     use — see {@see \Organizations\Schema\NoteSchema}'s `typeId` field
+ *     and {@see \Organizations\RecordBuilder}'s `ref:` scalar handling.
+ *
+ * `content`, when present, is wrapped in `<p>...</p>` — FOLIO's notes UI
+ * renders note content as HTML, and a plain-text value would otherwise
+ * display unformatted. `domain` and `links` are both assigned here,
+ * after {@see \Organizations\RecordBuilder::build()} returns, rather
+ * than by {@see \Organizations\Schema\NoteSchema} itself — see that
+ * class's docblock for why.
+ *
+ * @param $orgIdByRowNumber Row number => that row's organization's
+ *        client-generated `id` (see `main()`, where every *accepted*
+ *        organization is given one for exactly this purpose). A row
+ *        number missing from this map had its organization rejected.
+ * @return `[$noteRecords, $noteRowNumbers, $hadErrors]` — same shape as
+ *         {@see buildChildRecords()}'s return value.
+ */
+function buildNotes(
+    string $inputPath,
+    string $delimiter,
+    string $enclosure,
+    FieldMapper $mapper,
+    ValueCaster $caster,
+    FolioUtils $folioUtils,
+    string $listDelimiter,
+    ReferenceRegistry $registry,
+    array $orgIdByRowNumber,
+    ErrorLog $errorLog
+): array {
+    $errorLog->write('== notes ==');
+
+    $reader = new DelimitedFileReader($inputPath, $delimiter, $enclosure);
+    $reader->open();
+
+    $records = [];
+    $recordRowNumbers = [];
+    $hadErrors = false;
+    $indices = $mapper->indicesFor('notes');
+
+    foreach ($reader->rows() as $rowNum => $rowAssoc) {
+        foreach ($indices as $index) {
+            $subMapper = $mapper->forInstance('notes', $index);
+            $builder = new RecordBuilder($subMapper, $caster, $folioUtils, NoteSchema::class, $listDelimiter, $registry);
+            $result = $builder->build($rowAssoc, $rowNum);
+            if (empty($result->getRecord())) {
+                continue; // this instance doesn't apply to this row
+            }
+            if ($result->hasErrors()) {
+                $hadErrors = true;
+                foreach ($result->getErrors() as $error) {
+                    $errorLog->write("$error (notes[$index])");
+                }
+                $errorLog->write("Row $rowNum, notes[$index] skipped due to validation errors.");
+                $errorLog->write('');
+                continue;
+            }
+
+            if (!isset($orgIdByRowNumber[$rowNum])) {
+                $errorLog->write("Row $rowNum, notes[$index] skipped: its organization was rejected, so this note has nothing to attach to.");
+                $errorLog->write('');
+                continue;
+            }
+
+            $note = $result->getRecord();
+            if (isset($note['content'])) {
+                $note['content'] = '<p>' . $note['content'] . '</p>';
+            }
+            $note['domain'] = NoteSchema::DOMAIN;
+            $note['links'] = [['id' => $orgIdByRowNumber[$rowNum], 'type' => NoteSchema::DOMAIN]];
+
+            $records[] = $note;
+            $recordRowNumbers[] = $rowNum;
+        }
+    }
+    $reader->close();
+
+    $errorLog->write(sprintf('Built %d note record(s).', count($records)));
+    $errorLog->write('');
+
+    return [$records, $recordRowNumbers, $hadErrors];
 }
 
 function main(array $argv): int {
@@ -534,6 +754,10 @@ function main(array $argv): int {
         ? (string) $options['categories-output'] : "$outputDir/categories.$extension";
     $organizationTypesOutputPath = isset($options['organization-types-output']) && $options['organization-types-output'] !== true
         ? (string) $options['organization-types-output'] : "$outputDir/organization_types.$extension";
+    $notesOutputPath = isset($options['notes-output']) && $options['notes-output'] !== true
+        ? (string) $options['notes-output'] : "$outputDir/notes.$extension";
+    $noteTypesOutputPath = isset($options['note-types-output']) && $options['note-types-output'] !== true
+        ? (string) $options['note-types-output'] : "$outputDir/note_types.$extension";
 
     $mappingPath = isset($options['mapping']) && $options['mapping'] !== true
         ? (string) $options['mapping']
@@ -563,7 +787,6 @@ function main(array $argv): int {
 
     $caster = new ValueCaster();
     $folioUtils = new FolioUtils();
-    $registry = new ReferenceRegistry();
     $hadErrors = false;
 
     // If a live tenant is reachable, prefer its own configured timezone
@@ -585,6 +808,13 @@ function main(array $argv): int {
             date_default_timezone_set($tenantTimezone);
         }
     }
+
+    // Mixed into every deterministic id this run generates (organizations,
+    // interfaces/credentials, and the ReferenceRegistry's own
+    // categories/organizationTypes/noteTypes) — see FOLIO_NAMESPACE's
+    // docblock and ReferenceRegistry::resolve() for why.
+    $tenant = $folioClient !== null ? $folioClient->getConfig()->tenant_id : 'offline';
+    $registry = new ReferenceRegistry($tenant);
 
     // One log file for the whole run — every phase below writes its own
     // "== section ==" block into it, so all of a run's problems (and any
@@ -630,20 +860,38 @@ function main(array $argv): int {
     }
     $hadErrors = $hadErrors || $orgResult->hadErrors();
 
-    if (!writeRecords($orgResult->getRecords(), $outputPath, $format)) {
-        fwrite(STDERR, "Error: cannot write to output file '$outputPath'\n");
-        $errorLog->close();
-        return 1;
+    // Every accepted organization gets a client-generated `id` — FOLIO
+    // honors a client-supplied id on create, so generating one here
+    // (rather than leaving the server to invent one on load) lets a note
+    // (see buildNotes()) reference its organization's real id via
+    // `links[].id` without a separate lookup step at load time. The id
+    // is deterministic (see computeOrganizationId()), not random, so
+    // re-running the same import reproduces the exact same organization
+    // ids rather than inventing new ones each time.
+    $orgRecords = $orgResult->getRecords();
+    $orgAcceptedRowNumbers = $orgResult->getAcceptedRowNumbers();
+    $orgIdByRowNumber = [];
+    foreach ($orgRecords as $i => &$orgRecord) {
+        if (empty($orgRecord['id'])) {
+            $orgRecord['id'] = computeOrganizationId($tenant, $orgRecord['name'], $orgRecord['code']);
+        }
+        $orgIdByRowNumber[$orgAcceptedRowNumbers[$i]] = $orgRecord['id'];
     }
-    fwrite(STDERR, sprintf("Built %d organization(s).\n", count($orgResult->getRecords())));
+    unset($orgRecord);
 
+    // organizations.json isn't written yet — see below, right before it
+    // finally is: since a contact/interface built from this same row
+    // now gets a deterministic id too (see buildChildRecords()/
+    // buildInterfacesAndCredentials()), this organization's own
+    // `contacts`/`interfaces` reference arrays can be filled in with
+    // them automatically, but only once those two phases have run.
     $rejectedOrgRowNumbers = $orgResult->getRejectedRowNumbers();
 
     // --- contacts (0+ records per row) --------------------------------------
     try {
-        [$contactRecords, $contactRowNumbers, $contactsHadErrors] = buildChildRecords(
+        [$contactRecords, $contactRowNumbers, $orgContactIdsByRowNumber, $contactsHadErrors] = buildChildRecords(
             $inputPath, $delimiter, $enclosure, $mapper, 'contacts', ContactSchema::class,
-            $caster, $folioUtils, $listDelimiter, $registry, $errorLog
+            $caster, $folioUtils, $listDelimiter, $registry, $tenant, $errorLog
         );
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
@@ -659,11 +907,15 @@ function main(array $argv): int {
     }
     fwrite(STDERR, sprintf("Built %d contact(s).\n", count($contactRecords)));
     logOrphanNotes($errorLog, 'contact', $contactsOutputPath, $contactRowNumbers, $rejectedOrgRowNumbers, $format);
+    // $orgContactIdsByRowNumber (used below, for the organizations.json
+    // merge) already covers every row that resolved a contact id, not
+    // just the ones whose contact ended up newly written above — see
+    // buildChildRecords()'s docblock.
 
     // --- interfaces (0+ records per row) + their credentials ----------------
     try {
         [$interfaceRecords, $interfaceRowNumbers, $credentialRecords, $credentialRowNumbers, $interfacesHadErrors] = buildInterfacesAndCredentials(
-            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter, $errorLog
+            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter, $tenant, $errorLog
         );
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
@@ -688,7 +940,67 @@ function main(array $argv): int {
     fwrite(STDERR, sprintf("Built %d interface credential(s).\n", count($credentialRecords)));
     logOrphanNotes($errorLog, 'interface credential', $credentialsOutputPath, $credentialRowNumbers, $rejectedOrgRowNumbers, $format);
 
-    // --- categories and organization types (derived from the shared registry) ---
+    // rowNum => every interface id built from that row, for the same
+    // organizations.json merge.
+    $orgInterfaceIdsByRowNumber = [];
+    foreach ($interfaceRecords as $i => $interfaceRecord) {
+        $orgInterfaceIdsByRowNumber[$interfaceRowNumbers[$i]][] = $interfaceRecord['id'];
+    }
+
+    // Now that same-row contacts/interfaces are known, fill in each
+    // accepted organization's own `contacts`/`interfaces` reference
+    // arrays with them — merged alongside (not replacing) any literal
+    // UUIDs already mapped from a column, for a contact/interface that
+    // isn't part of this same import. `privilegedContacts` is left
+    // alone entirely: nothing in the data says which contacts (if any)
+    // are privileged, so it still requires a literal UUID, same as ever.
+    foreach ($orgRecords as $i => &$orgRecord) {
+        $rowNum = $orgAcceptedRowNumbers[$i];
+        if (!empty($orgContactIdsByRowNumber[$rowNum])) {
+            $orgRecord['contacts'] = array_values(array_unique(array_merge(
+                $orgRecord['contacts'] ?? [], $orgContactIdsByRowNumber[$rowNum]
+            )));
+        }
+        if (!empty($orgInterfaceIdsByRowNumber[$rowNum])) {
+            $orgRecord['interfaces'] = array_values(array_unique(array_merge(
+                $orgRecord['interfaces'] ?? [], $orgInterfaceIdsByRowNumber[$rowNum]
+            )));
+        }
+    }
+    unset($orgRecord);
+
+    if (!writeRecords($orgRecords, $outputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$outputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d organization(s).\n", count($orgRecords)));
+
+    // --- notes (0+ per row, only for rows whose organization was accepted) --
+    try {
+        [$noteRecords, $noteRowNumbers, $notesHadErrors] = buildNotes(
+            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter,
+            $registry, $orgIdByRowNumber, $errorLog
+        );
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+        $errorLog->close();
+        return 1;
+    }
+    $hadErrors = $hadErrors || $notesHadErrors;
+
+    if (!writeRecords($noteRecords, $notesOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$notesOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d note(s).\n", count($noteRecords)));
+    // logOrphanNotes() isn't applicable here the way it is for
+    // contacts/interfaces/credentials: a note whose organization was
+    // rejected was never built in the first place (see buildNotes()),
+    // so there's nothing surviving-but-orphaned to flag after the fact.
+
+    // --- categories, organization types, and note types (derived from the shared registry) ---
     $categories = $registry->getRecords('category', 'value');
     if (!writeRecords($categories, $categoriesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$categoriesOutputPath'\n");
@@ -713,10 +1025,23 @@ function main(array $argv): int {
     // the only rows that keep an entry alive are accepted organizations.
     logOrphanReferenceNotes($errorLog, $registry, 'organizationType', 'name', $organizationTypes, $organizationTypesOutputPath, $orgResult->getAcceptedRowNumbers(), $format);
 
+    $noteTypes = $registry->getRecords('noteType', 'name');
+    if (!writeRecords($noteTypes, $noteTypesOutputPath, $format)) {
+        fwrite(STDERR, "Error: cannot write to output file '$noteTypesOutputPath'\n");
+        $errorLog->close();
+        return 1;
+    }
+    fwrite(STDERR, sprintf("Built %d note type(s).\n", count($noteTypes)));
+    // Only a built note's own `type` field references noteType, so the
+    // only rows that keep an entry alive are rows that actually produced
+    // a note (see buildNotes() — a row whose organization was rejected
+    // never gets this far, so it can't have kept one alive either).
+    logOrphanReferenceNotes($errorLog, $registry, 'noteType', 'name', $noteTypes, $noteTypesOutputPath, $noteRowNumbers, $format);
+
     $errorLog->write(sprintf(
-        'Run complete: %d organization(s), %d contact(s), %d interface(s), %d credential(s), %d categor%s, %d organization type(s).',
-        count($orgResult->getRecords()), count($contactRecords), count($interfaceRecords), count($credentialRecords),
-        count($categories), count($categories) === 1 ? 'y' : 'ies', count($organizationTypes)
+        'Run complete: %d organization(s), %d contact(s), %d interface(s), %d credential(s), %d note(s), %d categor%s, %d organization type(s), %d note type(s).',
+        count($orgRecords), count($contactRecords), count($interfaceRecords), count($credentialRecords), count($noteRecords),
+        count($categories), count($categories) === 1 ? 'y' : 'ies', count($organizationTypes), count($noteTypes)
     ));
     $endTime = microtime(true);
     $errorLog->write(sprintf('Run ended %s', date('c')));

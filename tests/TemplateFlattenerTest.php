@@ -143,6 +143,17 @@ final class TemplateFlattenerTest extends TestCase {
         $this->assertSame('acct note', $acme['account1_notes']);
     }
 
+    public function testExternalNoteSheetMapsToTwoNotes(): void {
+        $acme = $this->rowFor('ACME');
+
+        $this->assertSame('General', $acme['note1_type']);
+        $this->assertSame('first note', $acme['note1_title']);
+        $this->assertSame('first note body', $acme['note1_content']);
+        $this->assertSame('Follow-up', $acme['note2_type']);
+        $this->assertSame('second note', $acme['note2_title']);
+        $this->assertArrayNotHasKey('note2_content', $acme);
+    }
+
     public function testMinimalOrganizationHasNoExtraFields(): void {
         $solo = $this->rowFor('SOLO');
 

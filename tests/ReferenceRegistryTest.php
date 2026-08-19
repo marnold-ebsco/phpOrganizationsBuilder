@@ -169,12 +169,4 @@ final class ReferenceRegistryTest extends TestCase {
 
         $this->assertSame('9647225d-d8e9-530d-b8cc-52a53be14e26', $uuid);
     }
-
-    public function testGeneratedUuidsAreVersion4Variant1(): void {
-        $uuid = ReferenceRegistry::generateUuidV4();
-        $this->assertMatchesRegularExpression(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
-            $uuid
-        );
-    }
 }

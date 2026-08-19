@@ -38,6 +38,15 @@ use Organizations\Io\XlsxReader;
  * `notes` *is* real, but it's a single string (not a list, unlike
  * `categories`) — hence the singular "NOTE" column name on the "URLs"
  * sheet, deliberately not "NOTES".
+ *
+ * "External note" is a different thing entirely: a mod-notes `note`
+ * (see {@see Schema\NoteSchema}), a completely separate FOLIO resource
+ * from mod-organizations-storage, attached to an organization by a
+ * `links[].id` reference bin/build-organizations assembles at build
+ * time (this class only flattens the sheet's three columns into
+ * `noteN_type`/`noteN_title`/`noteN_content`, numbered from 1 like
+ * "Contact people"/"Interfaces" — a note never had a Main-Org-record
+ * slot to reserve instance 1 for, in either template).
  */
 final class AlternateTemplateFlattener {
     /**
@@ -56,6 +65,7 @@ final class AlternateTemplateFlattener {
         $urls = $this->groupByOrgCode($this->readSheetRows($reader, 'URLs', 1));
         $contacts = $this->groupByOrgCode($this->readSheetRows($reader, 'Contact people', 1));
         $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 1));
+        $externalNotes = $this->groupByOrgCode($this->readSheetRows($reader, 'External note', 1));
         $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 1));
         $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 1));
 
@@ -135,7 +145,6 @@ final class AlternateTemplateFlattener {
             }
 
             // Contact people sheet -> contacts 1, 2, ... (own top-level records, not nested)
-            // TITLE has no home in the real `contact` schema and is dropped.
             $index = 1;
             foreach ($contacts[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'FIRST NAME', "contact{$index}_firstName");
@@ -162,6 +171,18 @@ final class AlternateTemplateFlattener {
                 $this->copy($flat, $row, 'NOTES', "interface{$index}_notes");
                 $this->copy($flat, $row, 'USERNAME', "interface{$index}_username");
                 $this->copy($flat, $row, 'PASSWORD', "interface{$index}_password");
+                $index++;
+            }
+
+            // External note sheet -> notes 1, 2, ... (own top-level mod-notes
+            // records, tied to this organization via a `links[].id` that
+            // bin/build-organizations assembles once it knows this
+            // organization's own id, not embedded in the organization here).
+            $index = 1;
+            foreach ($externalNotes[$key] ?? [] as $row) {
+                $this->copy($flat, $row, 'NOTE TYPE', "note{$index}_type");
+                $this->copy($flat, $row, 'NOTE TITLE', "note{$index}_title");
+                $this->copy($flat, $row, 'CONTENTS', "note{$index}_content");
                 $index++;
             }
 
