@@ -546,6 +546,26 @@ workbook directly and does the job for you:
 php process_template.php --input=Organization_Template_filled.xlsx --output-dir=out/
 ```
 
+### Changes from FOLIO's own blank `Organization_Template.xlsx`
+
+If you're comparing this repo's `Organization_Template.xlsx` against a
+copy of FOLIO's own original blank template, here's every sheet/column
+difference:
+
+- **Sheets removed:** "Notes" (tied to the `organization` schema
+  itself, which has no general-purpose free-text notes field — see
+  above).
+- **Sheets added:** "URLs" (more than one URL per organization) and
+  "External note" (mod-notes notes — see [Notes](#notes)).
+- **"Main Org record" gained:** `URL NOTE`, `ORG TYPE`; `URL CATEGORY`
+  renamed to `URL CATEGORIES` (it's a real array, not a single value).
+- **"Addresses"/"Phones"/"Emails" renamed:** `CATEGORY` → `CATEGORIES`
+  (same reason).
+- **"Contact people" renamed:** `CATEGORY` → `CATEGORIES`; **removed:**
+  `TITLE` (a contact's job title has no home in the real `contact`
+  schema at all — see [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)).
+- **"Interfaces", "Vendor info", "Accounts", "Alt names": unchanged.**
+
 It flattens the workbook into the indexed-column row format described
 above (`Organizations\TemplateFlattener` — unit tested against a small
 fixture in `tests/fixtures/`), writes that to a temporary intermediate
