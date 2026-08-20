@@ -1,0 +1,6 @@
+name        =
+okapiUrl    =
+tenant_id   =
+username    =
+password    =
+sslVerify   = "vendor/marnold-ebsco/phpfolioclient/src/folio/cacert.pem"
