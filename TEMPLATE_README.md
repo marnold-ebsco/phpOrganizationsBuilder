@@ -284,32 +284,46 @@ mapping file/schema already understands, not a new ad hoc name.
 
 ## The "required" column highlighting
 
-Both templates color a header cell to mark a column as required —
-"Coloured columns are mandatory" is stated directly on the "How to use
-this workbook" sheet. This is a **purely manual, visual convention**;
-nothing in the code reads xlsx cell formatting or enforces that a
-colored column matches a schema's `REQUIRED_FIELDS`. If you add or
-change a required field, you must color (or un-color) the header cell
-yourself, or the template will silently lie about what's actually
-required.
+Both templates mark a column as required, but by two different
+conventions now:
+
+- **`Organization_Template.xlsx`** colors the header cell —
+  "Coloured columns are mandatory" is stated directly on its "How to
+  use this workbook" sheet.
+- **`Organization_Template_Alternate.xlsx`** appends a red `*` to the
+  header text instead — "Columns marked with * are mandatory" is
+  stated on its own "How to use this workbook" sheet and on "Main Org
+  record". `AlternateTemplateFlattener::readSheetRows()` strips a
+  trailing `*` (and re-trims) before using a header as a key, so every
+  `$this->copy(...)` call elsewhere in that class keeps using a
+  column's plain name (`'ORG CODE'`, `'PHONE'`, ...) regardless of
+  whether it's currently marked required — **only that one method
+  needs to know the marker exists at all.**
+
+Either way, this is a **purely manual, visual/textual convention**;
+nothing in the code enforces that a colored/starred column actually
+matches a schema's `REQUIRED_FIELDS`. If you add or change a required
+field, you must mark (or unmark) the header yourself, using whichever
+convention that template uses, or the template will silently lie
+about what's actually required.
 
 The convention, based on the current templates:
 
-- `ORG CODE` is colored on **every** sheet — it's the join key every
-  flattener needs to associate a child-sheet row with its
+- `ORG CODE` is marked required on **every** sheet — it's the join key
+  every flattener needs to associate a child-sheet row with its
   organization, even though `code` is only literally in
   `OrganizationSchema::REQUIRED_FIELDS` once.
 - On "Main Org record": columns matching `OrganizationSchema::REQUIRED_FIELDS`
-  (`ORG NAME`, `ORG status`) are colored.
+  (`ORG NAME`, `ORG status`) are marked.
 - On a nested-group sheet (Addresses/Phones/Emails/URLs/Accounts):
   columns matching that group's own `'required'` array in
-  `OrganizationSchema::NESTED_GROUPS` are colored (e.g. `PHONE` on
+  `OrganizationSchema::NESTED_GROUPS` are marked (e.g. `PHONE` on
   Phones, since `phoneNumbers`'s required array is `['phoneNumber']`;
   nothing else on Addresses, since `addresses`'s required array is
   empty).
 - On "Contact people": columns matching `ContactSchema::REQUIRED_FIELDS`
-  (`FIRST NAME`, `LAST NAME`) are colored.
-- On "Interfaces": `USERNAME`/`PASSWORD` are colored even though
+  (`FIRST NAME`, `LAST NAME`) are marked.
+- On "Interfaces": `USERNAME`/`PASSWORD` are marked even though
   `InterfaceSchema::REQUIRED_FIELDS` is empty — they're required by the
   *companion* `InterfaceCredentialSchema` record those two columns
   build together, not by the interface itself. If you fill in one but
@@ -318,9 +332,9 @@ The convention, based on the current templates:
 - On "External note": `NOTE TYPE`/`NOTE TITLE` match
   `NoteSchema::REQUIRED_FIELDS`.
 
-When adding a required field anywhere, color its header cell to match
-one of these existing patterns; when removing a `REQUIRED_FIELDS`/
-`'required'` entry, remove the coloring too.
+When adding a required field anywhere, mark its header to match one of
+these existing patterns; when removing a `REQUIRED_FIELDS`/
+`'required'` entry, remove the marking too.
 
 ## After any change: verify
 
@@ -341,12 +355,25 @@ one of these existing patterns; when removing a `REQUIRED_FIELDS`/
 
 ## Common pitfalls
 
-- **Column header matching is case-insensitive but exact otherwise** —
-  extra punctuation, a trailing space kept in the header (a few
-  existing headers, like `'ADDR1 '`, do have one — `FieldMapper`
-  trims values it reads, but the *flattener*'s `$this->copy(...)` call
-  must still name the header exactly as it's spelled in the sheet,
-  including that space, or nothing will match.
+- **A flattener's own header matching is case-*sensitive* and exact**
+  (only whitespace, and — for the alternate template only — a trailing
+  `*`, are stripped first). This is a different, stricter rule than
+  `FieldMapper`'s `folio_field`/`legacy_field` matching one layer over
+  (see [The pipeline](#the-pipeline-in-one-paragraph)), which *is*
+  case-insensitive. Renaming a header's wording at all — even just
+  adding a parenthetical like `ORG TYPE` → `ORG TYPE (Choose one or
+  create your own)`, or `EXP ACTIVATION INTERVAL` → `EXPECTED
+  ACTIVATION INTERVAL` — breaks the matching `$this->copy(...)` call
+  exactly as if the column had been deleted: no error, the field just
+  stops populating. Whenever you reword a header, grep the matching
+  flattener for the *old* text and update it in the same change (see
+  [Recipe: add a column](#recipe-add-a-column-to-an-existing-sheet)) —
+  don't assume a cosmetic wording change is free.
+- **A trailing space kept in a header** (a few existing headers, like
+  `'ADDR1 '`, do have one) is fine — `readSheetRows()` trims it before
+  using the header as a key — but the flattener's `$this->copy(...)`
+  call itself must still name the header exactly as it's spelled
+  otherwise, or nothing will match.
 - **A `folio_field` for a nested-group instance needs the bracket** —
   `addresses.city` (no bracket) is shorthand for `addresses[1].city`
   only; a 2nd+ instance must be written explicitly as `addresses[2].city`.

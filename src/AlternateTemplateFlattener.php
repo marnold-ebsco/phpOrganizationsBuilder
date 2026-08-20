@@ -83,7 +83,7 @@ final class AlternateTemplateFlattener {
             $this->copy($flat, $mainRow, 'Vendor (Yes/No)', 'isVendor');
             $this->copy($flat, $mainRow, 'ORG status (Active/Inactive/Pending)', 'status');
             $this->copy($flat, $mainRow, 'Description', 'description');
-            $this->copy($flat, $mainRow, 'ORG TYPE', 'organizationTypes');
+            $this->copy($flat, $mainRow, 'ORG TYPE (Choose one or create your own)', 'organizationTypes');
 
             // Alt names sheet -> aliases 1, 2, ... (no Main Org record slot to reserve)
             $index = 1;
@@ -127,6 +127,7 @@ final class AlternateTemplateFlattener {
                 $prefix = $this->instancePrefix('email', $index);
                 $this->copy($flat, $row, 'EMAIL', "{$prefix}value");
                 $this->copy($flat, $row, 'DESCRIPTION', "{$prefix}description");
+                $this->copy($flat, $row, 'LANGUAGE', "{$prefix}language");
                 $this->copy($flat, $row, 'CATEGORIES', "{$prefix}categories");
                 $this->copy($flat, $row, 'IS PRIMARY', "{$prefix}isPrimary");
                 $index++;
@@ -192,7 +193,7 @@ final class AlternateTemplateFlattener {
                 $this->copy($flat, $row, 'CURRENCIES', 'vendorCurrencies');
                 $this->copy($flat, $row, 'CLAIMING INTERVAL', 'claimingInterval');
                 $this->copy($flat, $row, 'DISCOUNT %', 'discountPercent');
-                $this->copy($flat, $row, 'EXP ACTIVATION INTERVAL', 'expectedActivationInterval');
+                $this->copy($flat, $row, 'EXPECTED ACTIVATION INTERVAL', 'expectedActivationInterval');
                 $this->copy($flat, $row, 'EXP INVOICE INTERVAL', 'expectedInvoiceInterval');
                 $this->copy($flat, $row, 'EXP RECEIPT INTERVAL', 'expectedReceiptInterval');
                 $this->copy($flat, $row, 'RENEWAL ACTIVATION INTERVAL', 'renewalActivationInterval');
@@ -226,7 +227,13 @@ final class AlternateTemplateFlattener {
 
     /**
      * Read one sheet into a list of associative rows keyed by its own
-     * header row (trimmed, matched exactly as written in the template).
+     * header row (trimmed, matched exactly as written in the template) —
+     * except a trailing `*` (this template's way of marking a required
+     * column, in place of the original template's colored header cells —
+     * see [The "required" column highlighting] in TEMPLATE_README.md) is
+     * stripped first, so every `$this->copy(...)` call below can keep
+     * using a column's plain name regardless of whether it's currently
+     * marked required.
      *
      * @return list<array<string, string>>
      */
@@ -235,7 +242,7 @@ final class AlternateTemplateFlattener {
         if (!isset($raw[$headerRow])) {
             return [];
         }
-        $headers = array_map(static fn($h) => trim((string) $h), $raw[$headerRow]);
+        $headers = array_map(static fn($h) => trim(rtrim(trim((string) $h), '*')), $raw[$headerRow]);
 
         $rows = [];
         foreach ($raw as $rowNum => $row) {

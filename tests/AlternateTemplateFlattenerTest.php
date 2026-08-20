@@ -49,6 +49,7 @@ final class AlternateTemplateFlattenerTest extends TestCase {
         $this->assertSame('Yes', $acme['isVendor']);
         $this->assertSame('Active', $acme['status']);
         $this->assertSame('A test vendor', $acme['description']);
+        $this->assertSame('Vendor', $acme['organizationTypes']);
     }
 
     public function testAltNamesSheetFillsAliasesStartingAtOne(): void {
@@ -91,8 +92,10 @@ final class AlternateTemplateFlattenerTest extends TestCase {
         $acme = $this->rowFor('ACME');
 
         $this->assertSame('info@acme.example', $acme['email_value']);
+        $this->assertSame('eng', $acme['email_language']);
         $this->assertSame('Yes', $acme['email_isPrimary']);
         $this->assertSame('sales@acme.example', $acme['email2_value']);
+        $this->assertArrayNotHasKey('email2_language', $acme);
         $this->assertArrayNotHasKey('email2_isPrimary', $acme);
 
         $this->assertSame('https://acme.example', $acme['url_value']);
@@ -134,6 +137,18 @@ final class AlternateTemplateFlattenerTest extends TestCase {
         $this->assertSame('https://admin.acme.example', $acme['interface1_uri']);
         $this->assertSame('user', $acme['interface1_username']);
         $this->assertSame('pass', $acme['interface1_password']);
+    }
+
+    public function testVendorInfoSheetMapsToTopLevelFields(): void {
+        $acme = $this->rowFor('ACME');
+
+        $this->assertSame('EFT', $acme['paymentMethod']);
+        $this->assertSame('USD', $acme['vendorCurrencies']);
+        $this->assertSame('30', $acme['claimingInterval']);
+        $this->assertSame('15', $acme['expectedActivationInterval']);
+        $this->assertSame('Yes', $acme['exportToAccounting']);
+        $this->assertSame('12-345', $acme['taxId']);
+        $this->assertSame('No', $acme['liableForVat']);
     }
 
     public function testAccountsSheetMapsToAccountOne(): void {
