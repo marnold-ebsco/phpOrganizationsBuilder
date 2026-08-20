@@ -55,6 +55,19 @@
  * still be found (e.g. to delete it) without having to search back
  * through the whole log.
  *
+ * Every record actually loaded (or found already loaded, on the
+ * mod-notes recovery paths above) also has its real, tenant-assigned
+ * id written to a separate *cleanup log* (`--cleanup-log`) — one
+ * subheading per endpoint, one id per line; a record whose real id
+ * differs from the one this script sent (note types, and any note
+ * built from one) gets both, tab-separated, tenant id first. A
+ * credential has no id of its own worth deleting by (it's addressed
+ * entirely by its interface's id — see `endpointFor()`), so its line
+ * is that interface's id instead, under a templated
+ * `.../interfaces/{interfaceId}/credentials` heading. See
+ * cleanup_folio.php, which reads this file back to know what to
+ * delete.
+ *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
  * abort the rest of that file, or later files. This is NOT idempotent:
@@ -85,6 +98,15 @@
  *                               bin/build-organizations (default: a fresh,
  *                               timestamped file under logs/ next to this
  *                               script).
+ *   --cleanup-log=PATH           Where to write the real, tenant-assigned
+ *                               id of every record actually loaded, grouped
+ *                               by endpoint (default: a fresh, timestamped
+ *                               file under logs/ next to this script, named
+ *                               after --error-log's own default with a
+ *                               "_cleanup" tag). Feed this file to
+ *                               cleanup_folio.php later to remove everything
+ *                               this run loaded. Not written at all in
+ *                               --dry-run (nothing is actually loaded).
  *   --dry-run                   Parse everything and log exactly what
  *                               would be POSTed (endpoint + record),
  *                               without making any network calls or
@@ -226,16 +248,32 @@ function findExistingNoteTypeIdByName(FolioClient $client, string $name): ?strin
  * (the organization it belongs to), to avoid mistaking a different,
  * unrelated note that merely happens to share a title for the one this
  * script just tried to create.
+ *
+ * @return The found note's real id, or null if no match exists.
  */
-function noteAlreadyExists(FolioClient $client, string $title, array $expectedLinkIds): bool {
+function findExistingNoteId(FolioClient $client, string $title, array $expectedLinkIds): ?string {
     $escapedTitle = str_replace('"', '\\"', $title);
     foreach ($client->getAll('/notes', 'title=="' . $escapedTitle . '"') as $note) {
         $foundLinkIds = array_column((array) ($note->links ?? []), 'id');
         if (array_intersect($expectedLinkIds, $foundLinkIds) !== []) {
-            return true;
+            return (string) $note->id;
         }
     }
-    return false;
+    return null;
+}
+
+/**
+ * The literal endpoint (or, for credentials, endpoint *template*) a
+ * phase's cleanup-log entries are grouped under — the template form
+ * for credentials, unlike {@see endpointFor()}'s per-record resolved
+ * URL, since every credential has a *different* real endpoint (one per
+ * interface) but they all belong under one heading.
+ */
+function cleanupHeadingFor(string $phaseFile, ?string $fixedEndpoint): string {
+    if ($fixedEndpoint !== null) {
+        return $fixedEndpoint;
+    }
+    return '/organizations-storage/interfaces/{interfaceId}/credentials';
 }
 
 function main(array $argv): int {
@@ -271,6 +309,9 @@ function main(array $argv): int {
     $errorLogPath = isset($options['error-log']) && $options['error-log'] !== true
         ? (string) $options['error-log']
         : ErrorLog::defaultPathFor($inputDir, PROJECT_ROOT . '/logs');
+    $cleanupLogPath = isset($options['cleanup-log']) && $options['cleanup-log'] !== true
+        ? (string) $options['cleanup-log']
+        : ErrorLog::defaultPathFor($inputDir, PROJECT_ROOT . '/logs', 'cleanup');
 
     $errorLog = new ErrorLog($errorLogPath);
     try {
@@ -295,6 +336,25 @@ function main(array $argv): int {
             return 1;
         }
     }
+
+    // Nothing is actually loaded in a dry run, so there is nothing to
+    // put in a cleanup log; only opened when there might be.
+    $cleanupLog = null;
+    if (!$dryRun) {
+        $cleanupLog = new ErrorLog($cleanupLogPath);
+        try {
+            $cleanupLog->open();
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+            $errorLog->write('Error: ' . $e->getMessage());
+            $errorLog->close();
+            return 1;
+        }
+    }
+    // endpoint (or credentials' templated heading) => list of already-
+    // formatted lines ("id", or "tenantId\tscriptId" for a record whose
+    // real id differs from the one this script sent).
+    $cleanupEntries = [];
 
     $hadErrors = false;
 
@@ -336,6 +396,7 @@ function main(array $argv): int {
         $records = readRecords($path);
         $created = 0;
         $failed = 0;
+        $cleanupHeading = cleanupHeadingFor($phaseFile, $fixedEndpoint);
 
         foreach ($records as $record) {
             if (!is_array($record)) {
@@ -377,9 +438,26 @@ function main(array $argv): int {
                 if ($phaseFile === 'note_types' && isset($record['id']) && isset($response->id)) {
                     $noteTypeIdRemap[(string) $record['id']] = (string) $response->id;
                 }
+                if ($phaseFile === 'credentials') {
+                    // A credential has no id worth deleting by -- it's
+                    // addressed entirely by its interface's id.
+                    $cleanupEntries[$cleanupHeading][] = (string) $record['interfaceId'];
+                } elseif ($phaseFile === 'notes') {
+                    if (isset($response->id)) {
+                        $cleanupEntries[$cleanupHeading][] = (string) $response->id;
+                    }
+                } elseif (isset($record['id'])) {
+                    $realId = isset($response->id) ? (string) $response->id : (string) $record['id'];
+                    $cleanupEntries[$cleanupHeading][] = $realId === (string) $record['id']
+                        ? $realId
+                        : "{$realId}\t{$record['id']}";
+                }
             } catch (\Throwable $e) {
                 $recoveredId = ($phaseFile === 'note_types' && isset($record['name']))
                     ? findExistingNoteTypeIdByName($client, (string) $record['name'])
+                    : null;
+                $recoveredNoteId = ($phaseFile === 'notes' && isset($record['title']))
+                    ? findExistingNoteId($client, (string) $record['title'], array_column($record['links'] ?? [], 'id'))
                     : null;
 
                 if ($recoveredId !== null) {
@@ -387,10 +465,12 @@ function main(array $argv): int {
                     if (isset($record['id'])) {
                         $noteTypeIdRemap[(string) $record['id']] = $recoveredId;
                         $idSubstitutions[$endpoint][] = [(string) $record['id'], $recoveredId];
+                        $cleanupEntries[$cleanupHeading][] = "{$recoveredId}\t{$record['id']}";
                     }
                     $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO (id {$recoveredId}) — /note-types is known to sometimes create a record while still returning an error; using its real id for the typeId remap.");
-                } elseif ($phaseFile === 'notes' && isset($record['title']) && noteAlreadyExists($client, (string) $record['title'], array_column($record['links'] ?? [], 'id'))) {
+                } elseif ($recoveredNoteId !== null) {
                     $created++;
+                    $cleanupEntries[$cleanupHeading][] = $recoveredNoteId;
                     $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO — /notes is known to sometimes create a record while still returning an error.");
                 } else {
                     $failed++;
@@ -428,6 +508,18 @@ function main(array $argv): int {
 
     $errorLog->write(sprintf('Run complete%s.', $hadErrors ? ' (some records failed — see above)' : ''));
     $errorLog->close();
+
+    if ($cleanupLog !== null) {
+        foreach ($cleanupEntries as $heading => $lines) {
+            $cleanupLog->write("== {$heading} ==");
+            foreach ($lines as $line) {
+                $cleanupLog->write($line);
+            }
+            $cleanupLog->write('');
+        }
+        $cleanupLog->close();
+        fwrite(STDERR, "Cleanup log written to: $cleanupLogPath\n");
+    }
 
     if ($hadErrors) {
         fwrite(STDERR, "Some records failed to load — see: $errorLogPath\n");

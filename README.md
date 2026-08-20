@@ -45,6 +45,12 @@ php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/
 `password`; substitute `output/` for `output_alt/` if you built with
 the original template instead.)
 
+Loading a test batch you'll want to remove later? `load_to_folio.php`
+also writes a cleanup log naming every record's real id, grouped by
+endpoint; `cleanup_folio.php` reads it back to delete everything (or
+just the endpoints you name) — see
+[Removing what you loaded](#removing-what-you-loaded).
+
 ---
 
 Builds FOLIO mod-organizations-storage JSON objects from delimited legacy
@@ -793,10 +799,68 @@ A few things worth knowing about how it works:
 - A missing input file (e.g. no `credentials.json` because nothing had
   login credentials, or no `notes.json` because no row had a note)
   isn't an error — that phase is just skipped.
+- Every record actually loaded also gets its real, tenant-assigned id
+  written to a **cleanup log** (`--cleanup-log`, default a fresh,
+  timestamped file under `logs/` next to `--error-log`'s own) — one
+  heading per endpoint, one id per line; a record whose real id
+  differs from the one sent (note types, and any note built from one)
+  gets both, tab-separated, tenant id first. Not written at all in
+  `--dry-run`. See [Removing what you loaded](#removing-what-you-loaded)
+  for what to do with it.
 
 This is exactly the kind of action — creating records in a shared,
 live system — you should be careful with: always `--dry-run` first,
 and prefer testing against a sandbox/non-prod tenant before a real one.
+
+## Removing what you loaded
+
+[`cleanup_folio.php`](cleanup_folio.php) reads the cleanup log
+`load_to_folio.php` wrote (see above) and deletes everything in it —
+useful for clearing out a test load without hunting down every record
+by hand. It asks for the two things it needs interactively if you
+don't pass them as options:
+
+```bash
+php cleanup_folio.php --log=logs/output_cleanup_20260101_120000_abc123.log --folio-config=folio.ini
+```
+
+It always shows exactly which endpoints it's about to delete from,
+and how many records each, and asks you to confirm before deleting
+anything:
+
+```
+This will delete the following, from the tenant configured in 'folio.ini':
+  /organizations-storage/organizations (20 records)
+  /notes (7 records)
+  ...
+
+Proceed with deletion? [y/N]:
+```
+
+By default it removes everything the log describes, in the reverse of
+`load_to_folio.php`'s own load order (credentials, interfaces,
+contacts, notes, organizations, note types, organization types,
+categories), so nothing is deleted while something else loaded in the
+same run still references it. Pass `--endpoints=` (comma-separated,
+using the exact heading text from the log, e.g.
+`--endpoints=/organizations-storage/organizations,/notes`) to restrict
+it to specific endpoints instead — anything not named is left alone.
+
+Reading the id back from the cleanup log rather than the id in
+`organizations.json`/etc. directly is what makes this safe for
+`note_types.json`/`notes.json`: those files' own ids are the ones this
+project computed locally, which the tenant didn't actually use (see
+above) — deleting by them would either fail outright or, worse, delete
+nothing while looking like it succeeded. `--yes` skips the
+confirmation prompt (the endpoint/count summary is still printed
+first) for scripting; every deletion attempt, successful or not, is
+recorded in its own `--activity-log` (default: a fresh, timestamped
+file under `logs/`, named after the cleanup log). Run
+`php cleanup_folio.php --help` for the full option list.
+
+This deletes real data from a live tenant with no undo — double-check
+the log and the `--folio-config` you're pointing at before confirming,
+same caution as loading in the first place.
 
 ---
 
