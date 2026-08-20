@@ -123,6 +123,12 @@ README; since it's all written by the same, unmodified
 php process_template_alt.php --input=Organization_Template_Alternate_filled.xlsx --output-dir=out/
 ```
 
+Maintaining or extending either template (adding/removing a column,
+adding a sheet, changing what's required) is a different job from
+filling one out — see [TEMPLATE_README.md](TEMPLATE_README.md) for
+that; it covers both templates together, since they share the same
+mapping file and schema classes.
+
 [`Organization_Template_Alternate_example_data.xlsx`](Organization_Template_Alternate_example_data.xlsx)
 carries the *same* 16 organizations as
 [`Organization_Template_example_data.xlsx`](README.md#processing-the-organization_templatexlsx-workbook)

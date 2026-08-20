@@ -546,6 +546,11 @@ workbook directly and does the job for you:
 php process_template.php --input=Organization_Template_filled.xlsx --output-dir=out/
 ```
 
+Maintaining or extending the template itself (adding/removing a
+column, adding a sheet, changing what's required) is a different job
+from filling one out — see [TEMPLATE_README.md](TEMPLATE_README.md)
+for that.
+
 ### Changes from FOLIO's own blank `Organization_Template.xlsx`
 
 If you're comparing this repo's `Organization_Template.xlsx` against a
