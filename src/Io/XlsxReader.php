@@ -98,7 +98,17 @@ final class XlsxReader {
         $type = (string) ($cellEl['t'] ?? '');
         if ($type === 'inlineStr') {
             $isEl = $cellEl->xpath('./*[local-name()="is"]');
-            return $isEl !== [] ? (string) $isEl[0]->asXML() && false ? '' : (string) ($isEl[0]->t ?? implode('', (array) $isEl[0])) : '';
+            if ($isEl === []) {
+                return '';
+            }
+            // A single <t> (plain text) and one or more <r><t> runs (rich
+            // text, e.g. a header with a differently-colored trailing "*")
+            // both come through here: collecting every <t> descendant and
+            // concatenating them in document order handles both shapes the
+            // same way {@see readSharedStrings()} already does for the
+            // shared-string table.
+            $tEls = $isEl[0]->xpath('.//*[local-name()="t"]');
+            return implode('', array_map(static fn($t) => (string) $t, $tEls));
         }
 
         $vEl = $cellEl->xpath('./*[local-name()="v"]');

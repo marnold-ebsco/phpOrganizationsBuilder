@@ -36,8 +36,9 @@ final class XlsxReaderTest extends TestCase {
     public function testReadSheetOmitsCompletelyBlankRows(): void {
         $rows = $this->reader->readSheet('People');
 
-        // Only rows 1-3 have any content; nothing beyond that should appear.
-        $this->assertSame([1, 2, 3], array_keys($rows));
+        // Row 4 (D4 only, a rich-text cell used by another test) plus
+        // rows 1-3 have content; nothing else should appear.
+        $this->assertSame([1, 2, 3, 4], array_keys($rows));
     }
 
     public function testReadSheetHandlesSparseColumnsBeyondColumnZ(): void {
@@ -47,6 +48,16 @@ final class XlsxReaderTest extends TestCase {
         $this->assertArrayNotHasKey(1, $rows);
         $this->assertArrayNotHasKey(1, $rows[2]);
         $this->assertSame('sparse note', $rows[2][2]);
+    }
+
+    public function testReadSheetConcatenatesMultiRunRichTextCells(): void {
+        $rows = $this->reader->readSheet('People');
+
+        // 'D4' holds a rich-text cell with two differently-styled runs
+        // ("Required" + a separately-colored "*") -- both must come back
+        // concatenated into one string, not just the first run or a
+        // stray "Array" from mishandling the multiple <r> children.
+        $this->assertSame('Required*', $rows[4][4]);
     }
 
     public function testReadSheetThrowsForUnknownSheetName(): void {
