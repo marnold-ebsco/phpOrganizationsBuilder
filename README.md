@@ -92,81 +92,83 @@ below instead of hand-flattening it yourself.
 
 ## Setup
 
+Clone the repository and install dependencies with Composer:
+
 ```bash
+git clone https://github.com/marnold-ebsco/phpOrganizationsBuilder.git
+cd phpOrganizationsBuilder
 composer install
 ```
 
-This resolves `marnold-ebsco/phpfolioclient` from its own GitHub repo
-(https://github.com/marnold-ebsco/phpFolioClient, via a `vcs` repository
-in [`composer.json`](composer.json) — no local checkout or path needed),
-installs Guzzle transitively, and installs
+Requires PHP 8.1+ with the `zip`, `simplexml`, `curl`, and `mbstring`
+extensions enabled (see [`composer.json`](composer.json)) — `composer
+install` will say so if one's missing. It resolves
+`marnold-ebsco/phpfolioclient` from its own GitHub repo
+(https://github.com/marnold-ebsco/phpFolioClient, via a `vcs`
+repository already declared in `composer.json` — no separate checkout
+or path needed), installs Guzzle transitively, and installs
 `phpunit/phpunit` as a dev dependency.
+
+That's everything needed to build JSON offline (see
+[Running it](#running-it) below). Actually loading anything into a
+live FOLIO tenant — `--folio-config=PATH`, on any script that accepts
+it — additionally needs a FolioConfig INI file you create yourself
+(`okapiUrl`, `tenant_id`, `username`, `password`). It's never
+committed to this repo (see [`.gitignore`](.gitignore)); ask whoever
+manages tenant access for those values.
 
 ## Running it
 
+[`process_template.php`](process_template.php) and
+[`process_template_alt.php`](process_template_alt.php) are the two
+front doors — one per Excel template (see
+[Processing the Organization_Template.xlsx workbook](#processing-the-organization_templatexlsx-workbook)
+and [README_alternate.md](README_alternate.md) for how the templates
+themselves differ):
+
 ```bash
-php bin/build-organizations --input=orgs.tsv [options]
+php process_template.php --input=Organization_Template_filled.xlsx --output-dir=output/
+php process_template_alt.php --input=Organization_Template_Alternate_filled.xlsx --output-dir=output_alt/
 ```
 
-One run builds every record type at once, each to its own file:
+Either one reads its own template, flattens it, and builds every
+record type it finds — always the same 8 files, at the same fixed
+default names, into `--output-dir` (created for you if it doesn't
+already exist):
 
-| Record type | Built from | Output option | Default filename |
-|---|---|---|---|
-| Organizations | one per row | `--output=PATH` | stdout |
-| Contacts | `contacts[N].*` columns, 0+ per row | `--contacts-output=PATH` | `contacts.json` |
-| Interfaces | `interfaces[N].*` columns, 0+ per row | `--interfaces-output=PATH` | `interfaces.json` |
-| Interface credentials | that same instance's `interfaces[N].username`/`password`, only if both are present | `--credentials-output=PATH` | `credentials.json` |
-| Notes | `notes[N].*` columns, 0+ per row, only for a row whose organization was accepted — see [Notes](#notes) | `--notes-output=PATH` | `notes.json` |
-| Categories | names seen in any `categories` field, deduplicated | `--categories-output=PATH` | `categories.json` |
-| Organization types | names seen in `organizationTypes`, deduplicated | `--organization-types-output=PATH` | `organization_types.json` |
-| Note types | names seen in any `notes[N].type` column, deduplicated | `--note-types-output=PATH` | `note_types.json` |
-
-Contacts/interfaces/credentials/notes/categories/organization-types/
-note-types default filenames land next to `--output`'s directory (or
-the current directory, if `--output` is stdout). **Every default
-filename ends in `.json` regardless of `--format`** — the extension
-names the file type, not whether its content is one JSON array or
-one-object-per-line; see `--format` below.
+| File | Contains |
+|---|---|
+| `organizations.json` | one record per accepted row |
+| `contacts.json` | `contacts[N].*` columns/sheet rows, 0+ per row |
+| `interfaces.json` | `interfaces[N].*` columns/sheet rows, 0+ per row |
+| `credentials.json` | that same instance's username/password, only if both are present |
+| `notes.json` | `notes[N].*`/"External note" rows, 0+ per row, only for a row whose organization was accepted — see [Notes](#notes) |
+| `categories.json` | every category name referenced anywhere, deduplicated |
+| `organization_types.json` | every organization-type name referenced, deduplicated |
+| `note_types.json` | every note-type name referenced, deduplicated |
 
 | Option | Default | Description |
 |---|---|---|
-| `--input=PATH` | *(required)* | Delimited input file. |
-| `--output=PATH` | stdout | Organizations output file. |
-| `--contacts-output=PATH` | `contacts.json` | See table above. |
-| `--interfaces-output=PATH` | `interfaces.json` | See table above. |
-| `--credentials-output=PATH` | `credentials.json` | See table above. |
-| `--notes-output=PATH` | `notes.json` | See table above. |
-| `--categories-output=PATH` | `categories.json` | See table above. |
-| `--organization-types-output=PATH` | `organization_types.json` | See table above. |
-| `--note-types-output=PATH` | `note_types.json` | See table above. |
-| `--mapping=PATH` | `organization_field_mapping.json` (project root) | Field-mapping file — see below. |
-| `--format=json\|ndjson` | `ndjson` | Applies to all 8 outputs. `ndjson` writes one JSON object per line — the form most loading tools (including a simple line-by-line POST loop) expect; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json` (see above). |
-| `--delimiter=CHAR` | `tab` | Field delimiter — **tab is the normal/expected delimiter for input files.** Accepts a literal character or the names `tab`, `pipe`, `semicolon`, `comma`. |
-| `--enclosure=CHAR` | `"` | Field quote/enclosure character. |
-| `--list-delimiter=STR` | `\|` | Delimiter used *within* a single cell for multi-value fields (e.g. `organizationTypes`). Same convenience names as `--delimiter` are accepted. **Does not apply to `categories`** — a cell listing more than one category name always splits on `;` regardless of this setting (see [Reference data](#reference-data-categories--organization-types)). |
-| `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run.** Every phase (existing-reference-data lookup, organizations, contacts, interfaces + credentials, notes) writes its own `== section ==` block into it, so everything that went wrong (or, with `--folio-config`, everything that was already found to exist) lives in one place. |
-| `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization/note types are fetched from that tenant first — see [Reference data](#reference-data-categories--organization-types). |
+| `--input=PATH` | *(required)* | The filled-out template workbook. |
+| `--output-dir=PATH` | current directory | Directory for all 8 output files. |
+| `--mapping=PATH` | `organization_field_mapping.json` (project root) | Field-mapping file — see [Setting up the field mapping](#setting-up-the-field-mapping). Only needed if you've customized the mapping (e.g. added a column). |
+| `--format=json\|ndjson` | `ndjson` | Applies to all 8 outputs. `ndjson` writes one JSON object per line — the form `load_to_folio.php` (and most other loading tools) expects; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json`. |
+| `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run** — a `== template flattening ==` summary first, then every build phase's own `== section ==` block. |
+| `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization/note types are fetched from that tenant first instead of being recreated — see [Reference data](#reference-data-categories--organization-types). |
+| `--intermediate=PATH` | a temp file, deleted afterward | Where the flattened, delimited intermediate file is written before building from it. |
+| `--keep-intermediate` | | Don't delete the intermediate file — useful for seeing exactly what got read from the workbook. |
 | `--help` | | Print usage. |
 
-Example (the bundled sample file is tab-delimited, so no `--delimiter` is needed):
+Rows (or child instances, for contacts/interfaces/notes) that fail
+validation (missing required fields, bad enum values, malformed UUIDs,
+etc.) are written to the error log and skipped; everything else on
+that row is still built. **Every run creates brand-new log files** —
+never appended to, so logs from separate runs never collide. stderr
+only gets one-line summaries (counts built per record type, plus a
+single pointer to the log if anything anywhere was skipped); row-level
+detail lives in the log, not the console.
 
-```bash
-php bin/build-organizations --input=organizations_sample.tsv --output=organizations.json
-```
-
-If your input file is actually comma-delimited (e.g. a plain `.csv`
-export), pass `--delimiter=comma` explicitly — it's no longer the default.
-
-Rows that fail validation (missing required fields, bad enum values,
-malformed UUIDs, etc.) are written to the relevant error log and skipped;
-every other row (or child record, for contacts/interfaces) is still built
-and included in its output. **Every run creates brand-new log files** —
-never appended to, so logs from separate runs never collide. stderr only
-gets one-line summaries (counts built per record type, plus a single
-pointer to the log if anything anywhere was skipped); row-level detail
-lives in the log, not the console.
-
-Exit code is `1` if any row of any record type was skipped, `0` otherwise.
+Exit code is `1` if anything anywhere was skipped, `0` otherwise.
 
 The log also brackets the whole run with timing: `Run started ...`
 (already there) and a matching `Run ended ...` line right before `Run
