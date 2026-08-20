@@ -7,9 +7,12 @@
  * using the cleanup log that script writes (see its own docblock's
  * `--cleanup-log` option) as the list of what to delete. Reading that
  * log back — rather than the records' own locally-computed ids — is
- * what makes this safe for endpoints (currently `/note-types` and
- * `/notes`) where FOLIO assigns its own id instead of honoring the one
- * sent: the log already resolved that, tenant id first.
+ * what makes this safe for `/note-types`, the one endpoint where FOLIO
+ * assigns its own id instead of honoring the one sent: the log already
+ * resolved that, tenant id first. (`/notes` has also been observed to
+ * ignore an id-like field, but `notes.json` records never carry an
+ * `id` in the first place — there's nothing to override — so a note's
+ * line is just its one real id, same as everything else.)
  *
  * Deletes in the reverse of load_to_folio.php's own load order —
  * credentials, interfaces, contacts, notes, organizations, note types,

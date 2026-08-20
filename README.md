@@ -802,9 +802,12 @@ A few things worth knowing about how it works:
 - Every record actually loaded also gets its real, tenant-assigned id
   written to a **cleanup log** (`--cleanup-log`, default a fresh,
   timestamped file under `logs/` next to `--error-log`'s own) — one
-  heading per endpoint, one id per line; a record whose real id
-  differs from the one sent (note types, and any note built from one)
-  gets both, tab-separated, tenant id first. Not written at all in
+  heading per endpoint, one id per line. A note type's line has both
+  ids, tab-separated, tenant id first, since its real id can differ
+  from the one sent (FOLIO never honors it — see above). A note's line
+  is only ever its one real id — `notes.json` records never carry an
+  `id` field in the first place, so there's nothing to compare it
+  against, not a case of FOLIO overriding one. Not written at all in
   `--dry-run`. See [Removing what you loaded](#removing-what-you-loaded)
   for what to do with it.
 

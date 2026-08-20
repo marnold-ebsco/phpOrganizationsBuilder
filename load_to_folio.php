@@ -58,15 +58,18 @@
  * Every record actually loaded (or found already loaded, on the
  * mod-notes recovery paths above) also has its real, tenant-assigned
  * id written to a separate *cleanup log* (`--cleanup-log`) — one
- * subheading per endpoint, one id per line; a record whose real id
- * differs from the one this script sent (note types, and any note
- * built from one) gets both, tab-separated, tenant id first. A
- * credential has no id of its own worth deleting by (it's addressed
- * entirely by its interface's id — see `endpointFor()`), so its line
- * is that interface's id instead, under a templated
- * `.../interfaces/{interfaceId}/credentials` heading. See
- * cleanup_folio.php, which reads this file back to know what to
- * delete.
+ * subheading per endpoint, one id per line. A note type's real id is
+ * the one case that can differ from the one this script sent (FOLIO
+ * never honors it — see above), so its line has both, tab-separated,
+ * tenant id first. A note is different: `notes.json` records never
+ * carry an `id` field at all (there's nothing for FOLIO to
+ * honor-or-not in the first place), so a note's line is only ever its
+ * one real, tenant-assigned id. A credential has no id of its own
+ * worth deleting by (it's addressed entirely by its interface's id —
+ * see `endpointFor()`), so its line is that interface's id instead,
+ * under a templated `.../interfaces/{interfaceId}/credentials`
+ * heading. See cleanup_folio.php, which reads this file back to know
+ * what to delete.
  *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
@@ -512,7 +515,20 @@ function main(array $argv): int {
     if ($cleanupLog !== null) {
         foreach ($cleanupEntries as $heading => $lines) {
             $cleanupLog->write("== {$heading} ==");
+            $seenIds = [];
             foreach ($lines as $line) {
+                // Dedupe on the id that actually gets deleted with (the
+                // first field, for a "tenantId\tscriptId" line) — a
+                // recovery lookup (see findExistingNoteTypeIdByName()/
+                // findExistingNoteId() above) could in principle resolve
+                // two different local records to the same real tenant
+                // one; without this, cleanup_folio.php would then try to
+                // delete that id twice.
+                $deleteId = explode("\t", $line, 2)[0];
+                if (isset($seenIds[$deleteId])) {
+                    continue;
+                }
+                $seenIds[$deleteId] = true;
                 $cleanupLog->write($line);
             }
             $cleanupLog->write('');
