@@ -37,18 +37,19 @@ final class DelimitedFileReader {
      * @throws RuntimeException If the file can't be opened, or is empty.
      */
     public function open(): void {
-        $handle = fopen($this->path, 'r');
-        if ($handle === false) {
+        if (file_exists($this->path)) {
+            $handle = fopen($this->path, 'r');
+            $this->handle = $handle;
+
+            $headerRow = fgetcsv($this->handle, 0, $this->delimiter, $this->enclosure, '');
+            if ($headerRow === false || $headerRow === null) {
+                $this->close();
+                throw new RuntimeException("Input file '{$this->path}' is empty");
+            }
+            $this->headers = array_map(static fn($h) => strtolower(trim((string) $h)), $headerRow);
+        }else{
             throw new RuntimeException("Cannot open input file '{$this->path}'");
         }
-        $this->handle = $handle;
-
-        $headerRow = fgetcsv($this->handle, 0, $this->delimiter, $this->enclosure, '');
-        if ($headerRow === false || $headerRow === null) {
-            $this->close();
-            throw new RuntimeException("Input file '{$this->path}' is empty");
-        }
-        $this->headers = array_map(static fn($h) => strtolower(trim((string) $h)), $headerRow);
     }
 
     /**
