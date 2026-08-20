@@ -248,7 +248,7 @@ run actually created.
 php vendor/bin/phpunit
 ```
 
-154 tests across `tests/`, covering the mapper's resolution rules
+157 tests across `tests/`, covering the mapper's resolution rules
 (including multi-instance indexing and per-instance sub-mapping), every
 cast/validation path, nested-group behavior, the reference-data registry,
 the xlsx reader and template flattener, file-reading edge cases, and a
@@ -634,38 +634,36 @@ DELIVERY METHOD (Online/FTP/Email/Other). The dropdown is a convenience
 only — a value typed in that bypasses it is still caught by the same
 validation `bin/build-organizations` applies to any other input.
 
-Coloured columns in the template are the ones the real FOLIO schema
-actually marks `required` for whatever that column's row/sheet builds —
-`ORG CODE`/`ORG NAME`/`ORG status` on "Main Org record" (the
+Required columns are marked with a `*` in the header text (see
+[TEMPLATE_README.md](TEMPLATE_README.md#the-required-column-highlighting)
+for the exact convention) for whatever that column's row/sheet builds
+— `ORG CODE`/`ORG NAME`/`ORG status` on "Main Org record" (the
 organization's own `name`/`code`/`status`), `ALT NAME` on "Alt names",
 `PHONE` on "Phones", `EMAIL` on "Emails", `URL` on "URLs", `FIRST
 NAME`/`LAST NAME` on "Contact people" (a contact's *own* required
-fields — its embedded `EMAIL`/`PHONE` are not colored, since a contact's
+fields — its embedded `EMAIL`/`PHONE` are not marked, since a contact's
 email/phone, like an organization's, is an entirely optional group), and
 `ACCOUNT NAME`/`ACCOUNT NUMBER`/`ACCOUNT STATUS` on "Accounts". A
-coloured pair can also mean "required *together*, only if you use this
+marked pair can also mean "required *together*, only if you use this
 at all" rather than "always required": on "Interfaces", `USERNAME` and
-`PASSWORD` are both colored because filling in one without the other
+`PASSWORD` are both marked because filling in one without the other
 gets that login-credentials record skipped with a validation error, even
 though neither is required on its own — and even though neither is
-required, `NAME` on that same sheet is deliberately **not** coloured,
+required, `NAME` on that same sheet is deliberately **not** marked,
 because the real `interface` schema has no required fields at all, not
 even a name.
 
-Two of the 16 (`RIVERSIDE`, `METRODS`) are **deliberately broken** —
-one has an invalid `status` ("Closed"), the other an invalid nested
-phone `type` ("Landline") — to demonstrate that a validation failure
-anywhere in an organization's row drops that whole organization (logged,
-not silently ignored). Every one of the 16 still has at least one email,
-whether or not the organization itself builds successfully.
-
-**A rejected organization doesn't take everything else on its row down
-with it.** Contacts and interfaces (and, for an interface, its
-credential) are separate top-level records — `RIVERSIDE`'s and
-`METRODS'` contacts and interfaces still build and appear in
-`contacts.json`/`interfaces.json`/`credentials.json` even though
-`RIVERSIDE`/`METRODS` themselves are missing from `organizations.json`.
-Less obviously, the same is true of **categories and organization
+None of the bundled example data's 20 organizations is deliberately
+invalid — every one of them validates and builds cleanly. If a row
+*does* fail validation (an invalid `status`, an invalid nested phone
+`type`, ...), that whole organization is dropped — logged, not
+silently ignored — but **a rejected organization doesn't take
+everything else on its row down with it.** Contacts and interfaces
+(and, for an interface, its credential) are separate top-level records
+— they still build and appear in
+`contacts.json`/`interfaces.json`/`credentials.json` even though the
+organization itself is missing from `organizations.json`. Less
+obviously, the same is true of **categories and organization
 types**: a name referenced by any field on a row — a phone's `CATEGORIES`,
 an `ORG TYPE`, etc. — is resolved into `categories.json`/
 `organization_types.json` as soon as that field is read, before the
@@ -675,7 +673,9 @@ organization it came from is ultimately rejected.
 The error log calls these out explicitly, right after each affected
 file's `Built N ...` line, by file name and position — a `line` number
 for `ndjson` (the default; one record per line), or a `record #` for
-`json` (a single array, so "line" doesn't mean anything there):
+`json` (a single array, so "line" doesn't mean anything there). For
+example, if row 17 had a rejected organization whose contact/interface
+still built:
 
 ```
 Note: contacts.json line 8 is a contact built from row 17, whose organization was rejected above.
