@@ -60,9 +60,8 @@ https://github.com/folio-org/acq-models/tree/master/mod-orgs/schemas).
 It also builds mod-notes `notes` (a completely separate FOLIO module —
 see [Notes](#notes)) attached to each organization.
 
-Building and loading are two separate scripts. `bin/build-organizations`
-(and `process_template.php`) only build and validate JSON — they never
-talk to FOLIO to create anything (with one narrow exception:
+Building and loading are two separate scripts. `process_template.php` only builds and validates JSON — it never
+talks to FOLIO to create anything (with one narrow exception:
 `--folio-config`, which *reads* existing categories/organization/note
 types so it doesn't invent duplicates — see
 [Reference data](#reference-data-categories--organization-types) below).
