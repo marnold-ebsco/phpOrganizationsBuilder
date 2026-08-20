@@ -60,16 +60,16 @@ final class TemplateFlattener {
      */
     public function flatten(XlsxReader $reader): array {
         $mainRows = $this->readSheetRows($reader, 'Main Org record', 5);
-        $altNames = $this->groupByOrgCode($this->readSheetRows($reader, 'Alt names', 1));
-        $addresses = $this->groupByOrgCode($this->readSheetRows($reader, 'Addresses', 1));
-        $phones = $this->groupByOrgCode($this->readSheetRows($reader, 'Phones', 1));
-        $emails = $this->groupByOrgCode($this->readSheetRows($reader, 'Emails', 1));
-        $urls = $this->groupByOrgCode($this->readSheetRows($reader, 'URLs', 1));
-        $contacts = $this->groupByOrgCode($this->readSheetRows($reader, 'Contact people', 1));
-        $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 1));
-        $externalNotes = $this->groupByOrgCode($this->readSheetRows($reader, 'External note', 1));
-        $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 1));
-        $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 1));
+        $altNames = $this->groupByOrgCode($this->readSheetRows($reader, 'Alt names', 2));
+        $addresses = $this->groupByOrgCode($this->readSheetRows($reader, 'Addresses', 2));
+        $phones = $this->groupByOrgCode($this->readSheetRows($reader, 'Phones', 2));
+        $emails = $this->groupByOrgCode($this->readSheetRows($reader, 'Emails', 2));
+        $urls = $this->groupByOrgCode($this->readSheetRows($reader, 'URLs', 2));
+        $contacts = $this->groupByOrgCode($this->readSheetRows($reader, 'Contact people', 2));
+        $interfaces = $this->groupByOrgCode($this->readSheetRows($reader, 'Interfaces', 2));
+        $externalNotes = $this->groupByOrgCode($this->readSheetRows($reader, 'External note', 2));
+        $vendorInfo = $this->groupByOrgCode($this->readSheetRows($reader, 'Vendor info', 2));
+        $accounts = $this->groupByOrgCode($this->readSheetRows($reader, 'Accounts', 2));
 
         $flatRows = [];
         foreach ($mainRows as $mainRow) {
@@ -235,7 +235,13 @@ final class TemplateFlattener {
 
     /**
      * Read one sheet into a list of associative rows keyed by its own
-     * header row (trimmed, matched exactly as written in the template).
+     * header row (trimmed, matched exactly as written in the template) —
+     * except a trailing `*` (this template's way of marking a required
+     * column, replacing its earlier colored-header-cell convention — see
+     * [The "required" column highlighting] in TEMPLATE_README.md) is
+     * stripped first, so every `$this->copy(...)` call below can keep
+     * using a column's plain name regardless of whether it's currently
+     * marked required.
      *
      * @return list<array<string, string>>
      */
@@ -244,7 +250,7 @@ final class TemplateFlattener {
         if (!isset($raw[$headerRow])) {
             return [];
         }
-        $headers = array_map(static fn($h) => trim((string) $h), $raw[$headerRow]);
+        $headers = array_map(static fn($h) => trim(rtrim(trim((string) $h), '*')), $raw[$headerRow]);
 
         $rows = [];
         foreach ($raw as $rowNum => $row) {

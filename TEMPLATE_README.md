@@ -18,7 +18,7 @@ and each layer only knows about the one next to it — nothing
 cross-checks all four for you:
 
 1. **The xlsx file itself** — sheet names, header row, column names,
-   and which header cells are colored (see
+   and which headers are marked required (see
    [The "required" column highlighting](#the-required-column-highlighting)).
 2. **A flattener class** — `src/TemplateFlattener.php` for the
    original workbook, `src/AlternateTemplateFlattener.php` for the
@@ -108,8 +108,8 @@ upstream schema doc/JSON this package tracks).
    pattern (like a URL), add it to `TOP_LEVEL_PATTERNS`/the group's
    `'pattern'`.
 3. Then follow Case A's steps 1–4 above to wire a column to it.
-4. If you marked it required, also color its header cell in both
-   templates — see
+4. If you marked it required, also add the `*` marker to its header
+   in both templates — see
    [The "required" column highlighting](#the-required-column-highlighting) —
    and add/extend a validation test (e.g.
    `testInterfaceCredentialMissingPasswordIsReported()` in
@@ -284,28 +284,45 @@ mapping file/schema already understands, not a new ad hoc name.
 
 ## The "required" column highlighting
 
-Both templates mark a column as required, but by two different
-conventions now:
+Both templates now mark a required column by appending a `*` to its
+header text — "Columns marked with * are mandatory" is stated on each
+template's own "How to use this workbook" sheet and on "Main Org
+record" (this replaced an earlier, colored-header-cell convention;
+"Coloured columns are mandatory" is what an *older* copy of either
+template would say instead, if you're comparing against one). The two
+templates style the marker slightly differently — the alternate
+template's whole header (asterisk included) is uniformly bold and
+blue; the original template leaves the header text alone and colors
+*only* the `*` red, via a rich-text run — but both are read the same
+way: `TemplateFlattener::readSheetRows()` and
+`AlternateTemplateFlattener::readSheetRows()` each strip a trailing
+`*` (and re-trim) before using a header as a key, so every
+`$this->copy(...)` call elsewhere in either class keeps using a
+column's plain name (`'ORG CODE'`, `'PHONE'`, ...) regardless of
+whether it's currently marked required — **only that one method per
+class needs to know the marker exists at all.**
 
-- **`Organization_Template.xlsx`** colors the header cell —
-  "Coloured columns are mandatory" is stated directly on its "How to
-  use this workbook" sheet.
-- **`Organization_Template_Alternate.xlsx`** appends a red `*` to the
-  header text instead — "Columns marked with * are mandatory" is
-  stated on its own "How to use this workbook" sheet and on "Main Org
-  record". `AlternateTemplateFlattener::readSheetRows()` strips a
-  trailing `*` (and re-trims) before using a header as a key, so every
-  `$this->copy(...)` call elsewhere in that class keeps using a
-  column's plain name (`'ORG CODE'`, `'PHONE'`, ...) regardless of
-  whether it's currently marked required — **only that one method
-  needs to know the marker exists at all.**
+Getting the original template's red-asterisk-only styling to actually
+round-trip surfaced a real bug: a header styled as rich text (more
+than one `<r>` run inside its `<is>` element — one run for the plain
+text, one for the red `*`) came back from
+{@see \Organizations\Io\XlsxReader::cellValue()} as the literal string
+`"Array"` instead of the concatenated text, because that method's
+inline-string handling never accounted for more than one run (see its
+own docblock, and `readSharedStrings()` right above it, which already
+handled the equivalent case correctly for the shared-string table —
+`cellValue()` now does the same thing: collect every `<t>` descendant
+and concatenate them). Keep this in mind if you ever apply per-run
+formatting (bold part of a header, a differently-colored substring,
+...) to any cell a flattener reads — it's a normal xlsx feature, and
+it now works, but it's exactly the kind of thing that's easy to get
+wrong again in a *different* method later.
 
-Either way, this is a **purely manual, visual/textual convention**;
-nothing in the code enforces that a colored/starred column actually
-matches a schema's `REQUIRED_FIELDS`. If you add or change a required
-field, you must mark (or unmark) the header yourself, using whichever
-convention that template uses, or the template will silently lie
-about what's actually required.
+This marking is a **purely manual, visual/textual convention**;
+nothing in the code enforces that a starred column actually matches a
+schema's `REQUIRED_FIELDS`. If you add or change a required field, you
+must mark (or unmark) the header yourself, or the template will
+silently lie about what's actually required.
 
 The convention, based on the current templates:
 
@@ -356,8 +373,8 @@ these existing patterns; when removing a `REQUIRED_FIELDS`/
 ## Common pitfalls
 
 - **A flattener's own header matching is case-*sensitive* and exact**
-  (only whitespace, and — for the alternate template only — a trailing
-  `*`, are stripped first). This is a different, stricter rule than
+  (only whitespace, and a trailing `*`, are stripped first). This is a
+  different, stricter rule than
   `FieldMapper`'s `folio_field`/`legacy_field` matching one layer over
   (see [The pipeline](#the-pipeline-in-one-paragraph)), which *is*
   case-insensitive. Renaming a header's wording at all — even just
