@@ -563,13 +563,25 @@ difference:
 - **Sheets added:** "URLs" (more than one URL per organization) and
   "External note" (mod-notes notes — see [Notes](#notes)).
 - **"Main Org record" gained:** `URL NOTE`, `ORG TYPE`; `URL CATEGORY`
-  renamed to `URL CATEGORIES` (it's a real array, not a single value).
+  renamed to `URL CATEGORIES` (it's a real array, not a single value);
+  and — so that instance 1 of alias/address/phone/email/url (the one
+  that lives on this sheet, not an overflow sheet) can carry the same
+  fields instance 2+ can — `ALT NAME DESCRIPTION`, `ADDR LANGUAGE`,
+  `ADDR CATEGORIES`, `PHONE TYPE`, `PHONE LANGUAGE`, `PHONE CATEGORIES`,
+  `EMAIL DESCRIPTION`, `EMAIL LANGUAGE`, `EMAIL CATEGORIES`, and
+  `URL LANGUAGE`.
 - **"Addresses"/"Phones"/"Emails" renamed:** `CATEGORY` → `CATEGORIES`
-  (same reason).
+  (same reason). **"Emails" also gained:** `LANGUAGE`.
 - **"Contact people" renamed:** `CATEGORY` → `CATEGORIES`; **removed:**
   `TITLE` (a contact's job title has no home in the real `contact`
   schema at all — see [Contacts and interfaces](#contacts-and-interfaces-standalone-records-not-nested)).
 - **"Interfaces", "Vendor info", "Accounts", "Alt names": unchanged.**
+- Required columns are now marked with a `*` in the header text
+  instead of a colored header cell, and a blank row now precedes the
+  header row on every sheet except "How to use this workbook" and
+  "Main Org record" — see
+  [TEMPLATE_README.md](TEMPLATE_README.md#the-required-column-highlighting)
+  for both conventions.
 
 It flattens the workbook into the indexed-column row format described
 above (`Organizations\TemplateFlattener` — unit tested against a small

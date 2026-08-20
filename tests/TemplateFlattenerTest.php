@@ -58,6 +58,25 @@ final class TemplateFlattenerTest extends TestCase {
         $this->assertSame('Support', $acme['url_categories']);
     }
 
+    public function testMainOrgRecordCarriesFieldsInstanceOneHasNoOtherHomeFor(): void {
+        $acme = $this->rowFor('ACME');
+
+        // TYPE/LANGUAGE/CATEGORIES/DESCRIPTION only exist on the overflow
+        // sheets for instance 2+ unless Main Org record has its own
+        // columns for them too -- these prove instance 1 isn't missing
+        // that data just because it lives on Main Org record instead.
+        $this->assertSame('Primary alias note', $acme['alias_description']);
+        $this->assertSame('eng', $acme['address_language']);
+        $this->assertSame('Billing', $acme['address_categories']);
+        $this->assertSame('Office', $acme['phone_type']);
+        $this->assertSame('eng', $acme['phone_language']);
+        $this->assertSame('Sales', $acme['phone_categories']);
+        $this->assertSame('Primary contact email', $acme['email_description']);
+        $this->assertSame('eng', $acme['email_language']);
+        $this->assertSame('Support', $acme['email_categories']);
+        $this->assertSame('eng', $acme['url_language']);
+    }
+
     public function testFaxBecomesSecondPhoneInstanceTypedFax(): void {
         $acme = $this->rowFor('ACME');
 
@@ -94,6 +113,7 @@ final class TemplateFlattenerTest extends TestCase {
         $acme = $this->rowFor('ACME');
 
         $this->assertSame('sales@acme.example', $acme['email2_value']);
+        $this->assertSame('fra', $acme['email2_language']);
         $this->assertSame('https://support.acme.example', $acme['url2_value']);
         $this->assertSame('second url note', $acme['url2_notes']);
     }

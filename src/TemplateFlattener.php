@@ -83,6 +83,7 @@ final class TemplateFlattener {
             $this->copy($flat, $mainRow, 'ORG CODE', 'code');
             $this->copy($flat, $mainRow, 'ORG NAME', 'name');
             $this->copy($flat, $mainRow, 'ALT NAME', 'alias_value');
+            $this->copy($flat, $mainRow, 'ALT NAME DESCRIPTION', 'alias_description');
             $this->copy($flat, $mainRow, 'Vendor (Yes/No)', 'isVendor');
             $this->copy($flat, $mainRow, 'ORG status (Active/Inactive/Pending)', 'status');
             $this->copy($flat, $mainRow, 'Description', 'description');
@@ -92,10 +93,19 @@ final class TemplateFlattener {
             $this->copy($flat, $mainRow, 'REGION', 'address_stateRegion');
             $this->copy($flat, $mainRow, 'POSTAL CODE', 'address_zipCode');
             $this->copy($flat, $mainRow, 'COUNTRY', 'address_country');
+            $this->copy($flat, $mainRow, 'ADDR LANGUAGE', 'address_language');
+            $this->copy($flat, $mainRow, 'ADDR CATEGORIES', 'address_categories');
             $this->copy($flat, $mainRow, 'PHONE', 'phone_phoneNumber');
+            $this->copy($flat, $mainRow, 'PHONE TYPE', 'phone_type');
+            $this->copy($flat, $mainRow, 'PHONE LANGUAGE', 'phone_language');
+            $this->copy($flat, $mainRow, 'PHONE CATEGORIES', 'phone_categories');
             $this->copy($flat, $mainRow, 'EMAIL', 'email_value');
+            $this->copy($flat, $mainRow, 'EMAIL DESCRIPTION', 'email_description');
+            $this->copy($flat, $mainRow, 'EMAIL LANGUAGE', 'email_language');
+            $this->copy($flat, $mainRow, 'EMAIL CATEGORIES', 'email_categories');
             $this->copy($flat, $mainRow, 'URL', 'url_value');
             $this->copy($flat, $mainRow, 'URL DESCRIPTION', 'url_description');
+            $this->copy($flat, $mainRow, 'URL LANGUAGE', 'url_language');
             $this->copy($flat, $mainRow, 'URL NOTE', 'url_notes');
             $this->copy($flat, $mainRow, 'URL CATEGORIES', 'url_categories');
             $this->copy($flat, $mainRow, 'ORG TYPE', 'organizationTypes');
@@ -139,6 +149,7 @@ final class TemplateFlattener {
             foreach ($emails[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'EMAIL', "email{$index}_value");
                 $this->copy($flat, $row, 'DESCRIPTION', "email{$index}_description");
+                $this->copy($flat, $row, 'LANGUAGE', "email{$index}_language");
                 $this->copy($flat, $row, 'CATEGORIES', "email{$index}_categories");
                 $index++;
             }
