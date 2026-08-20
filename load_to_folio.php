@@ -48,6 +48,13 @@
  * note type, that also means any note referencing it is sent with its
  * original (now-invalid) `typeId` and fails too.
  *
+ * Whenever the id actually assigned to a record differs from the one
+ * sent (a note type, on either path above), that substitution is
+ * collected and, at the end of the run, written out grouped by
+ * endpoint — old id, then the real one — so a record like this can
+ * still be found (e.g. to delete it) without having to search back
+ * through the whole log.
+ *
  * A record that fails to load (validation error from FOLIO, duplicate,
  * network issue, ...) is logged and skipped — one bad record doesn't
  * abort the rest of that file, or later files. This is NOT idempotent:
@@ -306,6 +313,15 @@ function main(array $argv): int {
     // it), logged the same way as any other per-record failure.
     $noteTypeIdRemap = [];
 
+    // Every old-id -> new-id substitution discovered below (currently
+    // only possible for note types, but keyed generically by endpoint
+    // rather than hardcoded to /note-types, in case another endpoint is
+    // ever found to do the same), grouped for the summary written at
+    // the end of the run — so a record that had to be looked up under a
+    // different id than the one sent can still be found again later
+    // (e.g. to delete it) without re-reading the whole log.
+    $idSubstitutions = [];
+
     foreach (PHASES as [$phaseFile, $fixedEndpoint, $label]) {
         $path = $filePaths[$phaseFile];
         $errorLog->write("== {$label} ({$path}) ==");
@@ -355,6 +371,9 @@ function main(array $argv): int {
             try {
                 $response = $client->post($endpoint, $record);
                 $created++;
+                if (isset($record['id'], $response->id) && (string) $record['id'] !== (string) $response->id) {
+                    $idSubstitutions[$endpoint][] = [(string) $record['id'], (string) $response->id];
+                }
                 if ($phaseFile === 'note_types' && isset($record['id']) && isset($response->id)) {
                     $noteTypeIdRemap[(string) $record['id']] = (string) $response->id;
                 }
@@ -367,6 +386,7 @@ function main(array $argv): int {
                     $created++;
                     if (isset($record['id'])) {
                         $noteTypeIdRemap[(string) $record['id']] = $recoveredId;
+                        $idSubstitutions[$endpoint][] = [(string) $record['id'], $recoveredId];
                     }
                     $errorLog->write("{$label2} POST reported an error ({$e->getMessage()}) but already exists in FOLIO (id {$recoveredId}) — /note-types is known to sometimes create a record while still returning an error; using its real id for the typeId remap.");
                 } elseif ($phaseFile === 'notes' && isset($record['title']) && noteAlreadyExists($client, (string) $record['title'], array_column($record['links'] ?? [], 'id'))) {
@@ -393,6 +413,17 @@ function main(array $argv): int {
             $created, count($records), $label,
             $failed > 0 ? " ($failed failed)" : ''
         ));
+    }
+
+    if (!empty($idSubstitutions)) {
+        $errorLog->write('== id substitutions (FOLIO assigned a different id than the one sent) ==');
+        foreach ($idSubstitutions as $endpoint => $pairs) {
+            $errorLog->write("-- {$endpoint} --");
+            foreach ($pairs as [$oldId, $newId]) {
+                $errorLog->write("{$oldId} -> {$newId}");
+            }
+        }
+        $errorLog->write('');
     }
 
     $errorLog->write(sprintf('Run complete%s.', $hadErrors ? ' (some records failed — see above)' : ''));
