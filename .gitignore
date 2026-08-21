@@ -21,3 +21,4 @@ composer.phar
 # OS cruft
 .DS_Store
 Thumbs.db
+flattened.tsv

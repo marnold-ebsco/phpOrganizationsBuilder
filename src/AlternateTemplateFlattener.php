@@ -161,8 +161,7 @@ final class AlternateTemplateFlattener {
             // Interfaces sheet -> interfaces 1, 2, ... (own top-level records, not nested).
             // USERNAME/PASSWORD feed a companion interfaceCredential record
             // (built by bin/build-organizations, not embedded here) rather
-            // than the interface record itself. "DESCRIPTION" still has no
-            // home in the real `interface` schema and is dropped.
+            // than the interface record itself. 
             $index = 1;
             foreach ($interfaces[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'NAME', "interface{$index}_name");
