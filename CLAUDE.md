@@ -51,9 +51,11 @@ Both templates share the same mapping file and schema classes — only the flatt
 
 `bin/build-organizations` is the actual class-based CLI (declared as the Composer `bin`); `build_organizations.php` at the repo root is an older, procedural predecessor kept in place but no longer referenced by any documentation — don't confuse the two.
 
-### Deterministic ids, not random ones
+### Deterministic ids, not random ones (by default)
 
 Every generated id (`ReferenceRegistry::resolve()`/`generateUuidV5()`, and `computeDeterministicId()` in `bin/build-organizations`) is a `uuid5` of FOLIO's own well-known namespace plus a `tenant:objectType:legacyId` (or `:name`) string — the same convention the real `folio_uuid` Python migration-tooling library uses. This means: re-running the same input reproduces identical ids, categories/organization-types/note-types with the same name always hash to the same id (dedup for free), and organizations built from either template hash to the same id for the same name+code — a useful sanity check when changing a flattener (both templates' example data should always build byte-for-byte identical output).
+
+`--uuid-version` (on `bin/build-organizations`, or passed through by either `process_template*.php`) opts specific endpoints into random `uuid4` ids instead — `5` remains the default for every endpoint. A bare `--uuid-version=4` switches all 7 id-generating endpoints (`organizations`, `contacts`, `interfaces`, `interfaceCredentials`, `categories`, `organizationTypes`, `noteTypes` — `notes` has no client-generated id, so it isn't one of the 7); `--uuid-version=organizations=4,interfaces=4` opts in only those two, leaving the rest deterministic (see `parseUuidVersions()`, and `ReferenceRegistry`'s `array<namespace, version>` constructor form for `categories`/`organizationTypes`/`noteTypes`). Cross-references built within a single run (an organization's own `contacts`/`interfaces`, a credential's `interfaceId`, a note's `links[].id`) always reuse the actual id just generated rather than recomputing it, so mixing versions across endpoints never breaks a reference — a credential's own `id` can stay deterministic even while the `interfaceId` field inside it changes every run, if only `interfaces` opted into v4.
 
 ### Standalone records vs. nested groups
 

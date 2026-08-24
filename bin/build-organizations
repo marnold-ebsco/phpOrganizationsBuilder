@@ -121,6 +121,32 @@
  *                                   tenant is used instead — ids are still
  *                                   fully deterministic run-to-run, just not
  *                                   tenant-scoped.
+ *   --uuid-version=4|5              Which UUID version to generate every id
+ *                                   with — one of the 7 endpoints that get a
+ *                                   client-generated id (organizations,
+ *                                   contacts, interfaces, interfaceCredentials,
+ *                                   categories, organizationTypes, noteTypes;
+ *                                   notes.json's ids are server-assigned, so
+ *                                   there's no "notes" entry). Default: 5
+ *                                   (deterministic, see computeDeterministicId())
+ *                                   for every endpoint. A bare "4" switches
+ *                                   every endpoint to random ids instead (see
+ *                                   ReferenceRegistry::generateUuidV4()).
+ *                                   To opt in only *some* endpoints, use a
+ *                                   comma-separated "type=version" list
+ *                                   naming just those, e.g.
+ *                                   "--uuid-version=organizations=4,interfaces=4"
+ *                                   — every endpoint not named keeps the
+ *                                   default of 5. Random ids mean re-running
+ *                                   the same import will *not* reproduce the
+ *                                   same ids for that endpoint. Cross-references
+ *                                   built within a single run (an
+ *                                   organization's own contacts/interfaces,
+ *                                   an interface credential's interfaceId, a
+ *                                   note's links[].id) are unaffected either
+ *                                   way, since those are always the actual
+ *                                   id just generated, not recomputed from
+ *                                   scratch — see parseUuidVersions().
  *   --help                          Show this message.
  */
 
@@ -167,22 +193,84 @@ const PROJECT_ROOT = __DIR__ . '/..';
  * @param $legacyId   Whatever identifies this specific record within
  *                     its own type — not required to be globally unique
  *                     by itself, only combined with `$objectType`.
+ * @param $uuidVersion `5` (the default) for the deterministic scheme
+ *                     described above, or `4` to generate a random id
+ *                     instead (see {@see ReferenceRegistry::generateUuidV4()})
+ *                     — in which case `$tenant`/`$objectType`/`$legacyId`
+ *                     are ignored entirely, since there's nothing left to
+ *                     hash. See `--uuid-version` in this file's own
+ *                     docblock.
  */
-function computeDeterministicId(string $tenant, string $objectType, string $legacyId): string {
+function computeDeterministicId(string $tenant, string $objectType, string $legacyId, int $uuidVersion = 5): string {
+    if ($uuidVersion === 4) {
+        return ReferenceRegistry::generateUuidV4();
+    }
     $combined = implode(':', [$tenant, $objectType, $legacyId]);
     return ReferenceRegistry::generateUuidV5(ReferenceRegistry::FOLIO_NAMESPACE, $combined);
 }
 
 /**
- * Deterministic organization id: `$legacyId` is this organization's
- * `name`/`code` colon-joined (rather than concatenated directly, so e.g.
- * name `AB`+code `C` can't collide with name `A`+code `BC`) — see
- * {@see computeDeterministicId()} for the rest of the scheme. A note
- * (see `buildNotes()`) references an organization's id deterministically
- * this same way.
+ * Organization id: `$legacyId` is this organization's `name`/`code`
+ * colon-joined (rather than concatenated directly, so e.g. name `AB`+code
+ * `C` can't collide with name `A`+code `BC`) — see
+ * {@see computeDeterministicId()} for the rest of the scheme, including
+ * `$uuidVersion`. A note (see `buildNotes()`) references an organization's
+ * id this same way, regardless of which version generated it.
  */
-function computeOrganizationId(string $tenant, string $name, string $code): string {
-    return computeDeterministicId($tenant, 'organizations', trim($name) . ':' . trim($code));
+function computeOrganizationId(string $tenant, string $name, string $code, int $uuidVersion = 5): string {
+    return computeDeterministicId($tenant, 'organizations', trim($name) . ':' . trim($code), $uuidVersion);
+}
+
+/** Every endpoint that gets a client-generated id — see `--uuid-version`'s own docblock for why `notes` has no entry. */
+const UUID_VERSION_TYPES = [
+    'organizations', 'contacts', 'interfaces', 'interfaceCredentials',
+    'categories', 'organizationTypes', 'noteTypes',
+];
+
+/**
+ * Parses `--uuid-version` into a version (`4` or `5`) for each of
+ * {@see UUID_VERSION_TYPES}, so a caller can opt only specific endpoints
+ * into random ids rather than all-or-nothing.
+ *
+ * @param $raw Either a bare "4" or "5" (applied uniformly to every type),
+ *             or a comma-separated "type=version" list (e.g.
+ *             "organizations=4,interfaces=4") naming only the types that
+ *             should differ from the default of 5.
+ * @return array<string, int> Every name in {@see UUID_VERSION_TYPES},
+ *         each mapped to `4` or `5`.
+ * @throws \InvalidArgumentException If a named type isn't one of
+ *         {@see UUID_VERSION_TYPES}, or a version isn't `4`/`5`.
+ */
+function parseUuidVersions(string $raw): array {
+    $versions = array_fill_keys(UUID_VERSION_TYPES, 5);
+
+    if (!str_contains($raw, '=')) {
+        $version = (int) $raw;
+        if ($version !== 4 && $version !== 5) {
+            throw new \InvalidArgumentException("Unsupported UUID version: $raw (must be 4 or 5)");
+        }
+        return array_fill_keys(UUID_VERSION_TYPES, $version);
+    }
+
+    foreach (explode(',', $raw) as $pair) {
+        $parts = array_map('trim', explode('=', $pair, 2));
+        if (count($parts) !== 2) {
+            throw new \InvalidArgumentException("Malformed --uuid-version entry: '$pair' (expected type=version)");
+        }
+        [$type, $version] = $parts;
+        if (!in_array($type, UUID_VERSION_TYPES, true)) {
+            throw new \InvalidArgumentException(
+                "Unknown --uuid-version type: '$type' (must be one of: " . implode(', ', UUID_VERSION_TYPES) . ')'
+            );
+        }
+        $version = (int) $version;
+        if ($version !== 4 && $version !== 5) {
+            throw new \InvalidArgumentException("Unsupported UUID version for '$type': $version (must be 4 or 5)");
+        }
+        $versions[$type] = $version;
+    }
+
+    return $versions;
 }
 
 function printHelp(): void {
@@ -465,6 +553,7 @@ function buildChildRecords(
     string $listDelimiter,
     ?ReferenceRegistry $registry,
     string $tenant,
+    int $uuidVersion,
     ErrorLog $errorLog
 ): array {
     $errorLog->write("== {$schemaKey} ==");
@@ -503,7 +592,7 @@ function buildChildRecords(
             $legacyId = is_string($email) && trim($email) !== ''
                 ? strtolower(trim($email))
                 : "{$orgCode}:{$index}";
-            $id = computeDeterministicId($tenant, $schemaKey, $legacyId);
+            $id = computeDeterministicId($tenant, $schemaKey, $legacyId, $uuidVersion);
             $record['id'] = $id;
 
             $idsByRowNumber[$rowNum][] = $id;
@@ -537,6 +626,10 @@ function buildChildRecords(
  * Writes this section's validation errors into an already-open error
  * log (not opened or closed here — see {@see buildChildRecords()}).
  *
+ * @param $interfaceUuidVersion  UUID version (4 or 5) for interfaces.json ids.
+ * @param $credentialUuidVersion UUID version (4 or 5) for credentials.json ids —
+ *        deliberately separate from `$interfaceUuidVersion`, since
+ *        `--uuid-version` lets each endpoint opt in independently.
  * @return array{0: list<array>, 1: list<int>, 2: list<array>, 3: list<int>, 4: bool}
  *         [interfaces, each interface's origin row number (same order),
  *          credentials, each credential's origin row number (same order), hadErrors]
@@ -550,6 +643,8 @@ function buildInterfacesAndCredentials(
     FolioUtils $folioUtils,
     string $listDelimiter,
     string $tenant,
+    int $interfaceUuidVersion,
+    int $credentialUuidVersion,
     ErrorLog $errorLog
 ): array {
     $errorLog->write('== interfaces ==');
@@ -585,7 +680,7 @@ function buildInterfacesAndCredentials(
 
             $legacyId = "{$orgCode}:{$index}";
             $interfaceRecord = $result->getRecord();
-            $interfaceId = computeDeterministicId($tenant, 'interfaces', $legacyId);
+            $interfaceId = computeDeterministicId($tenant, 'interfaces', $legacyId, $interfaceUuidVersion);
             $interfaceRecord['id'] = $interfaceId;
             $interfaces[] = $interfaceRecord;
             $interfaceRowNumbers[] = $rowNum;
@@ -606,7 +701,7 @@ function buildInterfacesAndCredentials(
             }
 
             $credential = $credentialResult->getRecord();
-            $credential['id'] = computeDeterministicId($tenant, 'interfaceCredentials', $legacyId);
+            $credential['id'] = computeDeterministicId($tenant, 'interfaceCredentials', $legacyId, $credentialUuidVersion);
             $credential['interfaceId'] = $interfaceId;
             $credentials[] = $credential;
             $credentialRowNumbers[] = $rowNum;
@@ -768,9 +863,18 @@ function main(array $argv): int {
     $folioConfigPath = isset($options['folio-config']) && $options['folio-config'] !== true
         ? (string) $options['folio-config']
         : null;
-
     if (!in_array($format, ['json', 'ndjson'], true)) {
         fwrite(STDERR, "Error: --format must be 'json' or 'ndjson'\n");
+        return 1;
+    }
+    try {
+        $uuidVersions = parseUuidVersions(
+            isset($options['uuid-version']) && $options['uuid-version'] !== true
+                ? (string) $options['uuid-version']
+                : '5'
+        );
+    } catch (\InvalidArgumentException $e) {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         return 1;
     }
     if (strlen($delimiter) !== 1 || strlen($enclosure) !== 1) {
@@ -814,7 +918,11 @@ function main(array $argv): int {
     // categories/organizationTypes/noteTypes) — see FOLIO_NAMESPACE's
     // docblock and ReferenceRegistry::resolve() for why.
     $tenant = $folioClient !== null ? $folioClient->getConfig()->tenant_id : 'offline';
-    $registry = new ReferenceRegistry($tenant);
+    $registry = new ReferenceRegistry($tenant, [
+        'category' => $uuidVersions['categories'],
+        'organizationType' => $uuidVersions['organizationTypes'],
+        'noteType' => $uuidVersions['noteTypes'],
+    ]);
 
     // One log file for the whole run — every phase below writes its own
     // "== section ==" block into it, so all of a run's problems (and any
@@ -873,7 +981,7 @@ function main(array $argv): int {
     $orgIdByRowNumber = [];
     foreach ($orgRecords as $i => &$orgRecord) {
         if (empty($orgRecord['id'])) {
-            $orgRecord['id'] = computeOrganizationId($tenant, $orgRecord['name'], $orgRecord['code']);
+            $orgRecord['id'] = computeOrganizationId($tenant, $orgRecord['name'], $orgRecord['code'], $uuidVersions['organizations']);
         }
         $orgIdByRowNumber[$orgAcceptedRowNumbers[$i]] = $orgRecord['id'];
     }
@@ -891,7 +999,7 @@ function main(array $argv): int {
     try {
         [$contactRecords, $contactRowNumbers, $orgContactIdsByRowNumber, $contactsHadErrors] = buildChildRecords(
             $inputPath, $delimiter, $enclosure, $mapper, 'contacts', ContactSchema::class,
-            $caster, $folioUtils, $listDelimiter, $registry, $tenant, $errorLog
+            $caster, $folioUtils, $listDelimiter, $registry, $tenant, $uuidVersions['contacts'], $errorLog
         );
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
@@ -915,7 +1023,8 @@ function main(array $argv): int {
     // --- interfaces (0+ records per row) + their credentials ----------------
     try {
         [$interfaceRecords, $interfaceRowNumbers, $credentialRecords, $credentialRowNumbers, $interfacesHadErrors] = buildInterfacesAndCredentials(
-            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter, $tenant, $errorLog
+            $inputPath, $delimiter, $enclosure, $mapper, $caster, $folioUtils, $listDelimiter, $tenant,
+            $uuidVersions['interfaces'], $uuidVersions['interfaceCredentials'], $errorLog
         );
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");

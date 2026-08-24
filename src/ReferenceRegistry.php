@@ -52,10 +52,37 @@ final class ReferenceRegistry {
      *                (running without `--folio-config`, the default) —
      *                still fully deterministic run-to-run, just not
      *                tenant-scoped.
+     * @param $uuidVersion Either a single `4`/`5` applied to every
+     *                namespace uniformly, or an `array<string, int>`
+     *                mapping a specific namespace (`category`,
+     *                `organizationType`, `noteType`) to `4`/`5` —
+     *                a namespace missing from the array defaults to `5`.
+     *                `5` (deterministic, see {@see resolve()}) is the
+     *                overall default; `4` generates a random id instead
+     *                (see {@see generateUuidV4()}). Per-namespace control
+     *                exists because a caller may only want random ids for
+     *                *some* record types (e.g. `--uuid-version` on
+     *                bin/build-organizations, which lets each endpoint
+     *                opt in independently) while the rest stay
+     *                deterministic and reproducible.
      */
     public function __construct(
         private readonly string $tenant = 'offline',
+        private readonly int|array $uuidVersion = 5,
     ) {
+        foreach (is_array($uuidVersion) ? $uuidVersion : [$uuidVersion] as $version) {
+            if ($version !== 4 && $version !== 5) {
+                throw new \InvalidArgumentException("Unsupported UUID version: $version (must be 4 or 5)");
+            }
+        }
+    }
+
+    /** The UUID version (`4` or `5`) configured for a given namespace. */
+    private function uuidVersionFor(string $namespace): int {
+        if (is_array($this->uuidVersion)) {
+            return $this->uuidVersion[$namespace] ?? 5;
+        }
+        return $this->uuidVersion;
     }
 
     /**
@@ -91,13 +118,20 @@ final class ReferenceRegistry {
 
     /**
      * Resolve a name to its UUID within a namespace: reuses a
-     * {@see seed()}ed UUID if one matches, otherwise computes a
-     * deterministic one (`uuid5(FOLIO_NAMESPACE, "{tenant}:{namespace}:{key}")`
-     * — see {@see FOLIO_NAMESPACE}) the first time this (namespace, name)
-     * pair is seen. The hash uses the same lowercased/trimmed key
-     * matching is already done on, so two names this method already
-     * treats as equivalent (`Billing`/`billing`) keep resolving to the
-     * same id on a separate run too, not just within this one.
+     * {@see seed()}ed UUID if one matches, otherwise generates one the
+     * first time this (namespace, name) pair is seen, and caches it for
+     * every later call — so within a single run, this always returns the
+     * same UUID for the same name regardless of that namespace's
+     * `$uuidVersion`. For a namespace configured (see the constructor)
+     * with the default version `5`, that generated UUID is also
+     * deterministic *across* runs (`uuid5(FOLIO_NAMESPACE,
+     * "{tenant}:{namespace}:{key}")` — see {@see FOLIO_NAMESPACE}); the
+     * hash uses the same lowercased/trimmed key matching is already done
+     * on, so two names this method already treats as equivalent
+     * (`Billing`/`billing`) keep resolving to the same id on a separate
+     * run too, not just within this one. For a namespace configured with
+     * version `4`, the generated UUID is random instead — reproducible
+     * within this run (from the cache) but not across runs.
      *
      * @param $namespace Logical grouping (e.g. `category`, `organizationType`).
      * @param $name      The raw name to resolve; matching is
@@ -113,8 +147,12 @@ final class ReferenceRegistry {
         $key = strtolower($name);
 
         if (!isset($this->uuidsByName[$namespace][$key])) {
-            $combined = implode(':', [$this->tenant, $namespace, $key]);
-            $uuid = self::generateUuidV5(self::FOLIO_NAMESPACE, $combined);
+            if ($this->uuidVersionFor($namespace) === 4) {
+                $uuid = self::generateUuidV4();
+            } else {
+                $combined = implode(':', [$this->tenant, $namespace, $key]);
+                $uuid = self::generateUuidV5(self::FOLIO_NAMESPACE, $combined);
+            }
             $this->uuidsByName[$namespace][$key] = $uuid;
             $this->namesByUuid[$namespace][$uuid] = $name;
         }
@@ -180,6 +218,30 @@ final class ReferenceRegistry {
         $hash = sha1((string) $namespaceBytes . $name, true);
         $data = substr($hash, 0, 16);
         $data[6] = chr((ord($data[6]) & 0x0f) | 0x50);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+        $hex = bin2hex($data);
+        return sprintf(
+            '%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12)
+        );
+    }
+
+    /**
+     * Generate a random UUID v4 (version/variant nibbles set per RFC
+     * 4122, the other 122 bits from a cryptographically secure random
+     * source) — unlike {@see generateUuidV5()}, this produces a
+     * different id every time it's called, even for otherwise identical
+     * input. Opt-in via `$uuidVersion` on the constructor (or
+     * `--uuid-version=4` on bin/build-organizations); `5` remains the
+     * default everywhere.
+     */
+    public static function generateUuidV4(): string {
+        $data = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
         $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
         $hex = bin2hex($data);
         return sprintf(

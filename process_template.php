@@ -40,6 +40,10 @@
  *                        project root, same convention bin/build-organizations
  *                        itself uses).
  *   --folio-config=PATH  Passed through to bin/build-organizations.
+ *   --uuid-version=...   Passed through to bin/build-organizations
+ *                        verbatim (default: 5 for every endpoint) — see
+ *                        that script's own docblock for the
+ *                        per-endpoint "type=version" syntax.
  *   --help               Show this message.
  */
 
@@ -159,7 +163,7 @@ function main(array $argv): int {
     // --error-log/--append-log continue the exact same file this script
     // just wrote its own section to, rather than starting a fresh one.
     $buildArgs = ['--input=' . $intermediatePath, '--error-log=' . $errorLogPath, '--append-log'];
-    foreach (['mapping', 'format', 'folio-config'] as $passthroughOption) {
+    foreach (['mapping', 'format', 'folio-config', 'uuid-version'] as $passthroughOption) {
         if (isset($options[$passthroughOption]) && $options[$passthroughOption] !== true) {
             $buildArgs[] = "--{$passthroughOption}=" . $options[$passthroughOption];
         }

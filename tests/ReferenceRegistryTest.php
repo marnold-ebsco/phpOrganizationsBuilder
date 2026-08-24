@@ -169,4 +169,70 @@ final class ReferenceRegistryTest extends TestCase {
 
         $this->assertSame('9647225d-d8e9-530d-b8cc-52a53be14e26', $uuid);
     }
+
+    public function testGenerateUuidV4ProducesAValidVersion4Variant1Uuid(): void {
+        $uuid = ReferenceRegistry::generateUuidV4();
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $uuid
+        );
+    }
+
+    public function testGenerateUuidV4ProducesDifferentUuidsOnEachCall(): void {
+        $this->assertNotSame(ReferenceRegistry::generateUuidV4(), ReferenceRegistry::generateUuidV4());
+    }
+
+    public function testDefaultUuidVersionIsFive(): void {
+        $uuid = (new ReferenceRegistry())->resolve('category', 'Billing');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-5/', $uuid);
+    }
+
+    public function testUuidVersionFourResolvesToAValidVersion4Uuid(): void {
+        $uuid = (new ReferenceRegistry('offline', 4))->resolve('category', 'Billing');
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $uuid
+        );
+    }
+
+    public function testUuidVersionFourStillMemoizesTheSameNameWithinOneRegistry(): void {
+        $registry = new ReferenceRegistry('offline', 4);
+        $first = $registry->resolve('category', 'Billing');
+        $second = $registry->resolve('category', 'Billing');
+        $this->assertSame($first, $second);
+    }
+
+    public function testUuidVersionFourDoesNotReproduceTheSameUuidAcrossSeparateRegistries(): void {
+        $first = (new ReferenceRegistry('offline', 4))->resolve('category', 'Billing');
+        $second = (new ReferenceRegistry('offline', 4))->resolve('category', 'Billing');
+        $this->assertNotSame($first, $second);
+    }
+
+    public function testConstructorRejectsAnUnsupportedUuidVersion(): void {
+        $this->expectException(\InvalidArgumentException::class);
+        new ReferenceRegistry('offline', 3);
+    }
+
+    public function testPerNamespaceUuidVersionAppliesOnlyToTheNamedNamespace(): void {
+        $registry = new ReferenceRegistry('offline', ['category' => 4]);
+
+        $categoryUuid = $registry->resolve('category', 'Billing');
+        $orgTypeUuid = $registry->resolve('organizationType', 'Vendor');
+
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-4/', $categoryUuid);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-5/', $orgTypeUuid);
+    }
+
+    public function testPerNamespaceUuidVersionDefaultsUnlistedNamespacesToFive(): void {
+        $registry = new ReferenceRegistry('offline', []);
+
+        $uuid = $registry->resolve('category', 'Billing');
+
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-5/', $uuid);
+    }
+
+    public function testConstructorRejectsAnUnsupportedVersionInThePerNamespaceArray(): void {
+        $this->expectException(\InvalidArgumentException::class);
+        new ReferenceRegistry('offline', ['category' => 3]);
+    }
 }

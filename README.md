@@ -241,13 +241,39 @@ type/note type) — not just a stderr count that scrolls away — so
 there's a permanent record of what already existed versus what this
 run actually created.
 
+Every one of the 7 endpoints that gets a client-generated id
+(`organizations`, `contacts`, `interfaces`, `interfaceCredentials`,
+`categories`, `organizationTypes`, `noteTypes` — `notes.json`'s ids are
+server-assigned, so there's no `notes` entry here) defaults to `5`, but
+you can opt specific endpoints into a random UUID instead with
+`--uuid-version`:
+
+```bash
+--uuid-version=4                              # every endpoint gets random ids
+--uuid-version=organizations=4,interfaces=4    # only these two do; the rest stay deterministic
+```
+
+The tradeoff is exactly the deterministic behavior above: re-running
+the same legacy data with an endpoint opted into `4` invents a fresh id
+for that endpoint every time rather than reproducing the same one, so
+it's only appropriate for a one-off load you don't expect to ever
+re-run against the same tenant — mixing versions across endpoints lets
+you keep that guarantee everywhere else. This doesn't affect same-run
+references either way: an organization's own `contacts`/`interfaces`
+arrays, an interface credential's `interfaceId`, and a note's
+`links[].id` are always the actual id just generated, never
+recomputed — so, for example, opting only `interfaces` into `4` changes
+`interfaces.json`'s ids (and the matching `interfaceId` field inside
+`credentials.json`) without touching `credentials.json`'s own `id`
+column, which stays deterministic.
+
 ## Running the tests
 
 ```bash
 php vendor/bin/phpunit
 ```
 
-157 tests across `tests/`, covering the mapper's resolution rules
+167 tests across `tests/`, covering the mapper's resolution rules
 (including multi-instance indexing and per-instance sub-mapping), every
 cast/validation path, nested-group behavior, the reference-data registry,
 the xlsx reader and template flattener, file-reading edge cases, and a
