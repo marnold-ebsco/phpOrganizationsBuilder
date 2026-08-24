@@ -208,7 +208,7 @@ The remaining sheets:
 | Sheet | Columns | Required |
 |---|---|---|
 | Contact people | `ORG CODE`, `LAST NAME`, `FIRST NAME`, `NOTES`, `EMAIL`, `PHONE`, `DESCRIPTION`, `CATEGORIES` | `LAST NAME`, `FIRST NAME` |
-| Interfaces | `ORG CODE`, `NAME`, `TYPE` (list — Admin/End user/Reports/Orders/Invoices/Other), `URL`, `DELIVERY METHOD` (Online/FTP/Email/Other), `USERNAME`, `PASSWORD`, `DESCRIPTION`, `NOTES` | `USERNAME`+`PASSWORD` together, if either is used — see below |
+| Interfaces | `ORG CODE`, `NAME`, `TYPE` (list — Admin/End user/Reports/Orders/Invoices/Other), `URL`, `DELIVERY METHOD` (Online/FTP/Email/Other), `USERNAME`, `PASSWORD`, `NOTES` | `USERNAME`+`PASSWORD` together, if either is used — see below |
 | Vendor info | `ORG CODE`, `PAYMENT METHOD`, `CURRENCIES`, `CLAIMING INTERVAL`, `DISCOUNT %`, `EXPECTED ACTIVATION INTERVAL`, `EXP INVOICE INTERVAL`, `EXP RECEIPT INTERVAL`, `RENEWAL ACTIVATION INTERVAL`, `SUBSCRIPTION INTERVAL`, `EXPORT TO ACCOUNTING (Y/N)`, `TAX ID`, `TAX %`, `LIABLE FOR VAT (Y/N)` | — |
 | Accounts | `ORG CODE`, `ACCOUNT NAME`, `ACCOUNT NUMBER`, `DESCRIPTION`, `ACCOUNTING CODE`, `PAYMENT METHOD`, `ACCOUNT STATUS`, `LIBRARY EDI CODE`, `NOTES` | `ACCOUNT NAME`, `ACCOUNT NUMBER`, `ACCOUNT STATUS` |
 | External note | `ORG CODE`, `NOTE TYPE`, `NOTE TITLE`, `CONTENTS` | `NOTE TYPE`, `NOTE TITLE` |

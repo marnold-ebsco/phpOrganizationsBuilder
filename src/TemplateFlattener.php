@@ -18,27 +18,25 @@ use Organizations\Io\XlsxReader;
  * or validate any records itself — see process_template.php, which feeds
  * {@see flatten()}'s output to bin/build-organizations for that.
  *
- * One thing read from the template has no destination in the real
- * FOLIO `interface` schema and is deliberately dropped: the
- * "DESCRIPTION" column on "Interfaces" (see {@see Schema\InterfaceSchema}).
- * "Contact people"'s own "DESCRIPTION" column, by contrast, *is* mapped
- * — to `contacts[N].emails.description`, the contact's email's
- * description, not a property of the contact itself (see
- * {@see Schema\ContactSchema}). An earlier "TITLE" column on "Contact
- * people", for a contact's job title, genuinely had no home anywhere
- * and was removed from the template entirely, the same way the plain
- * "Notes" sheet below was.
- * "Interfaces"' own USERNAME/PASSWORD columns *are* mapped (to
- * `interfaceN_username`/`interfaceN_password`) — bin/build-organizations
- * turns those into a companion `Schema\InterfaceCredentialSchema` record,
- * not part of the interface object itself. There used to be a plain
- * "Notes" sheet here too, removed entirely (rather than kept-but-dropped)
- * since the real `organization` schema has no general-purpose free-text
- * notes field of its own anywhere — the only `notes` property in the
- * whole schema is `edi.notes`, specific to EDI transmission
+ * "Contact people"'s own "DESCRIPTION" column *is* mapped — to
+ * `contacts[N].emails.description`, the contact's email's description,
+ * not a property of the contact itself (see {@see Schema\ContactSchema}).
+ * A few other columns genuinely had no home anywhere in the real FOLIO
+ * schemas and were removed from the template entirely (rather than kept
+ * but silently dropped): an earlier "TITLE" column on "Contact people"
+ * (a contact's job title), "DESCRIPTION" on "Interfaces" (see
+ * {@see Schema\InterfaceSchema}), and a plain "Notes" sheet tied to the
+ * `organization` schema itself — that schema has no general-purpose
+ * free-text notes field of its own anywhere; the only `notes` property
+ * in the whole schema is `edi.notes`, specific to EDI transmission
  * configuration. A URL's own `notes` *is* real, but it's a single string
  * (not a list, unlike `categories`) — hence the singular "URL NOTE"/
  * "NOTE" column names, deliberately not "NOTES".
+ *
+ * "Interfaces"' own USERNAME/PASSWORD columns *are* mapped (to
+ * `interfaceN_username`/`interfaceN_password`) — bin/build-organizations
+ * turns those into a companion `Schema\InterfaceCredentialSchema` record,
+ * not part of the interface object itself.
  *
  * "External note" is a different thing entirely: a mod-notes `note`
  * (see {@see Schema\NoteSchema}), a completely separate FOLIO resource
@@ -180,8 +178,7 @@ final class TemplateFlattener {
             // Interfaces sheet -> interfaces 1, 2, ... (own top-level records, not nested).
             // USERNAME/PASSWORD feed a companion interfaceCredential record
             // (built by bin/build-organizations, not embedded here) rather
-            // than the interface record itself. "DESCRIPTION" still has no
-            // home in the real `interface` schema and is dropped.
+            // than the interface record itself.
             $index = 1;
             foreach ($interfaces[$key] ?? [] as $row) {
                 $this->copy($flat, $row, 'NAME', "interface{$index}_name");

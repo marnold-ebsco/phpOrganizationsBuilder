@@ -139,7 +139,6 @@ final class TemplateFlattenerTest extends TestCase {
         $this->assertSame('iface note', $acme['interface1_notes']);
         $this->assertSame('user', $acme['interface1_username']);
         $this->assertSame('pass', $acme['interface1_password']);
-        $this->assertArrayNotHasKey('interface1_description', $acme);
     }
 
     public function testVendorInfoSheetMapsToTopLevelFields(): void {
