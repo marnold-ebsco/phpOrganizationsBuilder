@@ -81,6 +81,7 @@ final class AlternateTemplateFlattener {
             $this->copy($flat, $mainRow, 'ORG CODE', 'code');
             $this->copy($flat, $mainRow, 'ORG NAME', 'name');
             $this->copy($flat, $mainRow, 'Vendor (Yes/No)', 'isVendor');
+            $this->copy($flat, $mainRow, 'Donor (Yes/No)', 'isDonor');
             $this->copy($flat, $mainRow, 'ORG status (Active/Inactive/Pending)', 'status');
             $this->copy($flat, $mainRow, 'Description', 'description');
             $this->copy($flat, $mainRow, 'ORG TYPE (Choose one or create your own)', 'organizationTypes');

@@ -83,6 +83,7 @@ final class TemplateFlattener {
             $this->copy($flat, $mainRow, 'ALT NAME', 'alias_value');
             $this->copy($flat, $mainRow, 'ALT NAME DESCRIPTION', 'alias_description');
             $this->copy($flat, $mainRow, 'Vendor (Yes/No)', 'isVendor');
+            $this->copy($flat, $mainRow, 'Donor (Yes/No)', 'isDonor');
             $this->copy($flat, $mainRow, 'ORG status (Active/Inactive/Pending)', 'status');
             $this->copy($flat, $mainRow, 'Description', 'description');
             $this->copy($flat, $mainRow, 'ADDR1', 'address_addressLine1');
