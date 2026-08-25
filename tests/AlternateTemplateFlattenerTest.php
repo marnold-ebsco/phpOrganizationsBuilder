@@ -47,6 +47,7 @@ final class AlternateTemplateFlattenerTest extends TestCase {
 
         $this->assertSame('Acme Co', $acme['name']);
         $this->assertSame('Yes', $acme['isVendor']);
+        $this->assertSame('Yes', $acme['isDonor']);
         $this->assertSame('Active', $acme['status']);
         $this->assertSame('A test vendor', $acme['description']);
         $this->assertSame('Vendor', $acme['organizationTypes']);
