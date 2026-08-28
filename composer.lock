@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a6fcad57df0f7da3835c3f10888baa46",
+    "content-hash": "ea2cfaaf89d76da9a8315ed6aed01565",
     "packages": [
         {
             "name": "guzzlehttp/guzzle",
@@ -339,16 +339,16 @@
         },
         {
             "name": "marnold-ebsco/phpfolioclient",
-            "version": "dev-main",
+            "version": "v2.0.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/marnold-ebsco/phpFolioClient.git",
-                "reference": "39d00a4093c0a9b233e3c35780549e8b82fdfbcf"
+                "reference": "5b086f720f5973e226069e7715662f4f24f9b005"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/marnold-ebsco/phpFolioClient/zipball/39d00a4093c0a9b233e3c35780549e8b82fdfbcf",
-                "reference": "39d00a4093c0a9b233e3c35780549e8b82fdfbcf",
+                "url": "https://api.github.com/repos/marnold-ebsco/phpFolioClient/zipball/5b086f720f5973e226069e7715662f4f24f9b005",
+                "reference": "5b086f720f5973e226069e7715662f4f24f9b005",
                 "shasum": ""
             },
             "require": {
@@ -358,7 +358,6 @@
             "require-dev": {
                 "phpunit/phpunit": "^10.0"
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -372,10 +371,10 @@
             },
             "description": "PHP client library for the FOLIO library services platform API.",
             "support": {
-                "source": "https://github.com/marnold-ebsco/phpFolioClient/tree/v2.0.7",
+                "source": "https://github.com/marnold-ebsco/phpFolioClient/tree/v2.0.8",
                 "issues": "https://github.com/marnold-ebsco/phpFolioClient/issues"
             },
-            "time": "2026-08-16T21:03:11+00:00"
+            "time": "2026-08-28T13:39:28+00:00"
         },
         {
             "name": "psr/http-client",
@@ -2393,9 +2392,7 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {
-        "marnold-ebsco/phpfolioclient": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
@@ -2406,5 +2403,5 @@
         "ext-mbstring": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
