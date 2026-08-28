@@ -22,3 +22,6 @@ composer.phar
 .DS_Store
 Thumbs.db
 flattened.tsv
+
+# Editor workspace files
+*.code-workspace
