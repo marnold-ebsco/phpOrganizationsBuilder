@@ -126,8 +126,7 @@ and [README_alternate.md](README_alternate.md) for how the templates
 themselves differ):
 
 ```bash
-php process_template.php --input=Organization_Template_filled.xlsx --output-dir=output/
-php process_template_alt.php --input=Organization_Template_Alternate_filled.xlsx --output-dir=output_alt/
+php process_template.php --input=Organization_Template_example_data.xlsx --output-dir=output/
 ```
 
 Either one reads its own template, flattens it, and builds every
@@ -576,7 +575,7 @@ info" row per organization. [`process_template.php`](process_template.php) reads
 workbook directly and does the job for you:
 
 ```bash
-php process_template.php --input=Organization_Template_filled.xlsx --output-dir=out/
+php process_template.php --input=Organization_Template_example_data.xlsx --output-dir=out/
 ```
 
 Maintaining or extending the template itself (adding/removing a

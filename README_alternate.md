@@ -9,7 +9,7 @@ composer install
 ```
 
 ```bash
-php process_template_alt.php --input=Organization_Template_Alternate_filled.xlsx --output-dir=output_alt/
+php process_template_alt.php --input=Organization_Template_Alternate_example_data.xlsx --output-dir=output_alt/
 ```
 
 Then, once you have output you're happy with, load it into a live
@@ -93,7 +93,7 @@ filled-out copy of `Organization_Template_Alternate.xlsx`, flattens
 it, and builds every record type it finds:
 
 ```bash
-php process_template_alt.php --input=Organization_Template_Alternate_filled.xlsx --output-dir=output_alt/
+php process_template_alt.php --input=Organization_Template_Alternate_example_data.xlsx --output-dir=output_alt/
 ```
 
 Always the same 8 files, at fixed default names, into `--output-dir`
