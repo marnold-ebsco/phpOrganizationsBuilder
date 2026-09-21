@@ -282,6 +282,7 @@ function cleanupHeadingFor(string $phaseFile, ?string $fixedEndpoint): string {
 }
 
 function main(array $argv): int {
+    $startTime = hrtime(true);
     $options = Options::parse($argv);
 
     if (isset($options['help'])) {
@@ -546,6 +547,9 @@ function main(array $argv): int {
     if ($hadErrors) {
         fwrite(STDERR, "Some records failed to load — see: $errorLogPath\n");
     }
+
+    $elapsedSeconds = (hrtime(true) - $startTime) / 1_000_000_000;
+    fwrite(STDERR, sprintf("Completed in %05.2f seconds.\n", $elapsedSeconds));
 
     return $hadErrors ? 1 : 0;
 }

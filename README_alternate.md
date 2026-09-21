@@ -645,7 +645,9 @@ php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/ --dry-run
 php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/            # then for real
 ```
 
-`--input-dir` should point at the directory holding the 8 files (pass
+`--input-dir` should point at the directory holding the 8 files. If
+omitted, you're prompted to type a path interactively instead (press
+enter for the current directory, same as the old default) — pass
 `--categories=PATH` etc. individually if they're not all in one place,
 or not named the defaults — note the underscore in
 `--organization_types`/`--note_types` specifically, not a hyphen; see
