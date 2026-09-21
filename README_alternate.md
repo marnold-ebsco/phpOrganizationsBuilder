@@ -645,6 +645,14 @@ php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/ --dry-run
 php load_to_folio.php --folio-config=folio.ini --input-dir=output_alt/            # then for real
 ```
 
+If `--folio-config` is omitted (and it's not a `--dry-run`), rather
+than failing outright, `load_to_folio.php` looks for `*.ini` files
+next to the script itself: a single one is confirmed with you by its
+`name` field before use (e.g. `Found FOLIO config 'LSE-Demo1'
+(lsedemo.ini). Use this? [Y/n]`), several are listed by name for you
+to pick from (by number or by typing a path instead), and none falls
+back to asking for a path directly.
+
 `--input-dir` should point at the directory holding the 8 files. If
 omitted, you're prompted to type a path interactively instead (press
 enter for the current directory, same as the old default) — pass
