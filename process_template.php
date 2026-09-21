@@ -25,8 +25,10 @@
  *   php process_template.php --input=Organization_Template_filled.xlsx --output-dir=out/
  *
  * Options:
- *   --input=PATH        Filled xlsx template (required).
- *   --output-dir=PATH   Directory for all 6 output files (default: current directory).
+ *   --input=PATH        Filled xlsx template. If omitted, you'll be
+ *                       prompted to type a path interactively.
+ *   --output-dir=PATH   Directory for all 6 output files (default: same
+ *                       directory as --input).
  *   --intermediate=PATH Where to write the flattened delimited file
  *                       (default: a temp file, deleted afterward).
  *   --keep-intermediate Don't delete the intermediate file (useful for debugging).
@@ -73,15 +75,19 @@ function main(array $argv): int {
         return 0;
     }
     if (empty($options['input']) || $options['input'] === true) {
-        fwrite(STDERR, "Error: --input=PATH is required.\n\n");
-        printHelp();
-        return 1;
+        fwrite(STDERR, "Path to filled xlsx template: ");
+        $inputPath = trim((string) fgets(STDIN));
+        if ($inputPath === '') {
+            fwrite(STDERR, "Error: --input=PATH is required.\n\n");
+            printHelp();
+            return 1;
+        }
+    } else {
+        $inputPath = (string) $options['input'];
     }
-
-    $inputPath = (string) $options['input'];
     $outputDir = isset($options['output-dir']) && $options['output-dir'] !== true
         ? (string) $options['output-dir']
-        : getcwd();
+        : dirname($inputPath);
     $intermediatePath = isset($options['intermediate']) && $options['intermediate'] !== true
         ? (string) $options['intermediate']
         : tempnam(sys_get_temp_dir(), 'orgs_flat_') . '.tsv';
