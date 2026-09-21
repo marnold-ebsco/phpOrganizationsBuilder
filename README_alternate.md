@@ -96,8 +96,10 @@ it, and builds every record type it finds:
 php process_template_alt.php --input=Organization_Template_Alternate_example_data.xlsx --output-dir=output_alt/
 ```
 
-Always the same 8 files, at fixed default names, into `--output-dir`
-(created for you if it doesn't already exist):
+Up to the same 8 fixed default filenames, into `--output-dir`
+(created for you if it doesn't already exist). A file for a record
+type with zero records isn't created at all (any stale file from a
+previous run at that path is removed):
 
 | File | Contains |
 |---|---|

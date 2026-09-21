@@ -130,9 +130,10 @@ php process_template.php --input=Organization_Template_example_data.xlsx --outpu
 ```
 
 Either one reads its own template, flattens it, and builds every
-record type it finds — always the same 8 files, at the same fixed
-default names, into `--output-dir` (created for you if it doesn't
-already exist):
+record type it finds, writing up to the same 8 fixed default
+filenames into `--output-dir` (created for you if it doesn't already
+exist). A file for a record type with zero records isn't created at
+all (any stale file from a previous run at that path is removed):
 
 | File | Contains |
 |---|---|

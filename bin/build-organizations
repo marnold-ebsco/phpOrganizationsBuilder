@@ -377,8 +377,19 @@ function seedRegistryFromFolio(FolioClient $client, ReferenceRegistry $registry,
     fwrite(STDERR, sprintf("Seeded %d existing note type(s) from FOLIO.\n", count($noteTypeNames)));
 }
 
-/** Write a list of records to a path (or stdout) as json or ndjson. */
+/**
+ * Write a list of records to a path (or stdout) as json or ndjson.
+ * When writing to a path and there are no records, no file is created
+ * (any stale file left over from a previous run at that path is
+ * removed instead), rather than shipping an empty/near-empty file.
+ */
 function writeRecords(array $records, ?string $path, string $format): bool {
+    if ($records === [] && $path !== null) {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+        return true;
+    }
     $handle = $path !== null ? fopen($path, 'w') : STDOUT;
     if ($handle === false) {
         return false;
