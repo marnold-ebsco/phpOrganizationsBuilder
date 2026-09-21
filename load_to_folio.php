@@ -87,7 +87,9 @@
  *                               username, password — see phpFolioClient's
  *                               FolioConfig). Required unless --dry-run.
  *   --input-dir=PATH            Directory holding the 8 files described
- *                               above (default: current directory).
+ *                               above. If omitted, you're prompted to type
+ *                               a path interactively (default: current
+ *                               directory, if you just press enter).
  *   --categories=PATH           Override individual file paths (default:
  *   --organization_types=PATH   "{input-dir}/{name}.json" for each, matching
  *   --note_types=PATH           bin/build-organizations's own default
@@ -298,9 +300,13 @@ function main(array $argv): int {
         return 1;
     }
 
-    $inputDir = isset($options['input-dir']) && $options['input-dir'] !== true
-        ? (string) $options['input-dir']
-        : getcwd();
+    if (isset($options['input-dir']) && $options['input-dir'] !== true) {
+        $inputDir = (string) $options['input-dir'];
+    } else {
+        fwrite(STDERR, 'Input directory holding the output files [' . getcwd() . ']: ');
+        $typed = trim((string) fgets(STDIN));
+        $inputDir = $typed !== '' ? $typed : getcwd();
+    }
 
     $filePaths = [];
     foreach (PHASES as [$phaseFile]) {
