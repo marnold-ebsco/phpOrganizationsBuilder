@@ -85,7 +85,12 @@
  * Options:
  *   --folio-config=PATH        FolioConfig INI file (okapiUrl, tenant_id,
  *                               username, password — see phpFolioClient's
- *                               FolioConfig). Required unless --dry-run.
+ *                               FolioConfig). Required unless --dry-run. If
+ *                               omitted, *.ini files next to this script
+ *                               are offered instead: one match is confirmed
+ *                               by its `name` field before use, several are
+ *                               listed by name for you to choose from, and
+ *                               none falls back to typing a path directly.
  *   --input-dir=PATH            Directory holding the 8 files described
  *                               above. If omitted, you're prompted to type
  *                               a path interactively (default: current
@@ -281,6 +286,61 @@ function cleanupHeadingFor(string $phaseFile, ?string $fixedEndpoint): string {
     return '/organizations-storage/interfaces/{interfaceId}/credentials';
 }
 
+/** Best-effort `name` field from an INI file, falling back to its basename if unreadable or unset. */
+function folioConfigName(string $path): string {
+    $config = @parse_ini_file($path, false, INI_SCANNER_TYPED);
+    if (is_array($config) && !empty($config['name'])) {
+        return (string) $config['name'];
+    }
+    return basename($path);
+}
+
+/**
+ * When --folio-config wasn't given, look for *.ini files next to this
+ * script rather than failing outright: a single match is confirmed
+ * with the user (showing its `name` field — see FolioConfig), several
+ * matches are listed by name for the user to choose from, and no
+ * matches falls back to asking for a path directly. Returns null if
+ * the user ends up not providing one either way.
+ */
+function resolveFolioConfigPath(string $scriptDir): ?string {
+    $candidates = glob(rtrim($scriptDir, '/\\') . '/*.ini') ?: [];
+    sort($candidates);
+
+    if ($candidates === []) {
+        fwrite(STDERR, 'Path to FOLIO config INI file: ');
+        $typed = trim((string) fgets(STDIN));
+        return $typed !== '' ? $typed : null;
+    }
+
+    if (count($candidates) === 1) {
+        $path = $candidates[0];
+        fwrite(STDERR, sprintf("Found FOLIO config '%s' (%s). Use this? [Y/n]: ", folioConfigName($path), $path));
+        $answer = strtolower(trim((string) fgets(STDIN)));
+        if ($answer === '' || $answer[0] === 'y') {
+            return $path;
+        }
+    } else {
+        fwrite(STDERR, "Multiple FOLIO configs found:\n");
+        foreach ($candidates as $i => $path) {
+            fwrite(STDERR, sprintf("  [%d] %s (%s)\n", $i + 1, folioConfigName($path), $path));
+        }
+        fwrite(STDERR, 'Enter a number, or type a path: ');
+        $typed = trim((string) fgets(STDIN));
+        if (ctype_digit($typed) && isset($candidates[((int) $typed) - 1])) {
+            return $candidates[((int) $typed) - 1];
+        }
+        if ($typed !== '') {
+            return $typed;
+        }
+        return null;
+    }
+
+    fwrite(STDERR, 'Path to FOLIO config INI file: ');
+    $typed = trim((string) fgets(STDIN));
+    return $typed !== '' ? $typed : null;
+}
+
 function main(array $argv): int {
     $startTime = hrtime(true);
     $options = Options::parse($argv);
@@ -295,6 +355,9 @@ function main(array $argv): int {
         ? (string) $options['folio-config']
         : null;
 
+    if (!$dryRun && $folioConfigPath === null) {
+        $folioConfigPath = resolveFolioConfigPath(PROJECT_ROOT);
+    }
     if (!$dryRun && $folioConfigPath === null) {
         fwrite(STDERR, "Error: --folio-config=PATH is required (unless --dry-run).\n\n");
         printHelp();
