@@ -147,8 +147,8 @@ already exist):
 
 | Option | Default | Description |
 |---|---|---|
-| `--input=PATH` | *(required)* | The filled-out template workbook. |
-| `--output-dir=PATH` | current directory | Directory for all 8 output files. |
+| `--input=PATH` | *(prompted)* | The filled-out template workbook. If omitted, you're prompted to type a path interactively instead of getting an error. |
+| `--output-dir=PATH` | same directory as `--input` | Directory for all 8 output files. |
 | `--mapping=PATH` | `organization_field_mapping.json` (project root) | Field-mapping file — see [Setting up the field mapping](#setting-up-the-field-mapping). Only needed if you've customized the mapping (e.g. added a column). |
 | `--format=json\|ndjson` | `ndjson` | Applies to all 8 outputs. `ndjson` writes one JSON object per line — the form `load_to_folio.php` (and most other loading tools) expects; a JSON array isn't directly "loadable" that way. `json` writes a single JSON array instead, if you specifically want that. Either way, filenames still end in `.json`. |
 | `--error-log=PATH` | `logs/{input basename}_{timestamp}_{random}.log` (project root, created automatically) | **One log file for the whole run** — a `== template flattening ==` summary first, then every build phase's own `== section ==` block. |

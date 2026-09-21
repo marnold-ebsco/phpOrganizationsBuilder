@@ -68,6 +68,7 @@ function printHelp(): void {
 }
 
 function main(array $argv): int {
+    $startTime = hrtime(true);
     $options = Options::parse($argv);
 
     if (isset($options['help'])) {
@@ -189,6 +190,9 @@ function main(array $argv): int {
     } else {
         fwrite(STDERR, "Intermediate flattened file kept at: $intermediatePath\n");
     }
+
+    $elapsedSeconds = (hrtime(true) - $startTime) / 1_000_000_000;
+    fwrite(STDERR, sprintf("Completed in %05.2f seconds.\n", $elapsedSeconds));
 
     return $exitCode;
 }
