@@ -122,6 +122,8 @@ previous run at that path is removed):
 | `--folio-config=PATH` | *(none — offline by default)* | FolioConfig INI file; when given, existing categories/organization/note types are fetched from that tenant first instead of being recreated — see [Reference data](#reference-data-categories--organization-types). |
 | `--intermediate=PATH` | a temp file, deleted afterward | Where the flattened, delimited intermediate file is written before building from it. |
 | `--keep-intermediate` | | Don't delete the intermediate file — useful for seeing exactly what got read from the workbook. |
+| `--log-uuids` | off | Write a log of every new record's type, id, and a short label, one line per record (`organizations.json`'s records, etc. — `notes.json` is excluded, since FOLIO assigns its id at load time, not here). |
+| `--uuid-log=PATH` | `{input basename}_uuids_{timestamp}_{random}.log`, in `--output-dir` | Path for the `--log-uuids` file. Ignored unless `--log-uuids` is also given. |
 | `--help` | | Print usage. |
 
 Rows (or child instances, for contacts/interfaces/notes) that fail

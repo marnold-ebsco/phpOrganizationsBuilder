@@ -46,6 +46,13 @@
  *                        verbatim (default: 5 for every endpoint) — see
  *                        that script's own docblock for the
  *                        per-endpoint "type=version" syntax.
+ *   --log-uuids          Off by default. When given, writes a log of every
+ *                        new record's type, id, and a short label — see
+ *                        bin/build-organizations's own docblock.
+ *   --uuid-log=PATH      Path for the --log-uuids file (default: a fresh,
+ *                        timestamped file in --output-dir, alongside
+ *                        organizations.json etc.). Ignored unless
+ *                        --log-uuids is also given.
  *   --help               Show this message.
  */
 
@@ -110,6 +117,19 @@ function main(array $argv): int {
     $errorLogPath = isset($options['error-log']) && $options['error-log'] !== true
         ? (string) $options['error-log']
         : ErrorLog::defaultPathFor($inputPath, PROJECT_ROOT . '/logs');
+    // Off by default (bin/build-organizations ignores --uuid-log unless
+    // --log-uuids is also given, so there's no point resolving a default
+    // path otherwise). When on, named after the original xlsx (not the
+    // intermediate tsv), and resolved here rather than left to
+    // bin/build-organizations's own default, so it's timestamped like
+    // --error-log but lands in --output-dir alongside organizations.json
+    // etc., not project-root logs/.
+    $logUuidsEnabled = isset($options['log-uuids']);
+    $uuidLogPath = $logUuidsEnabled
+        ? (isset($options['uuid-log']) && $options['uuid-log'] !== true
+            ? (string) $options['uuid-log']
+            : ErrorLog::defaultPathFor($inputPath, $outputDir, 'uuids'))
+        : null;
 
     $reader = new XlsxReader($inputPath);
     try {
@@ -170,6 +190,10 @@ function main(array $argv): int {
     // --error-log/--append-log continue the exact same file this script
     // just wrote its own section to, rather than starting a fresh one.
     $buildArgs = ['--input=' . $intermediatePath, '--error-log=' . $errorLogPath, '--append-log'];
+    if ($logUuidsEnabled) {
+        $buildArgs[] = '--log-uuids';
+        $buildArgs[] = '--uuid-log=' . $uuidLogPath;
+    }
     foreach (['mapping', 'format', 'folio-config', 'uuid-version'] as $passthroughOption) {
         if (isset($options[$passthroughOption]) && $options[$passthroughOption] !== true) {
             $buildArgs[] = "--{$passthroughOption}=" . $options[$passthroughOption];

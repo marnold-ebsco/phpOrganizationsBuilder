@@ -147,6 +147,15 @@
  *                                   way, since those are always the actual
  *                                   id just generated, not recomputed from
  *                                   scratch — see parseUuidVersions().
+ *   --log-uuids                      Off by default. When given, writes a log of
+ *                                   every new record's type, id, and a short
+ *                                   label, one line per record. notes.json's
+ *                                   records are excluded, since their ids are
+ *                                   server-assigned, not built here.
+ *   --uuid-log=PATH                  Path for the --log-uuids file (default: a
+ *                                   fresh, timestamped file in the same
+ *                                   directory as the other output files).
+ *                                   Ignored unless --log-uuids is also given.
  *   --help                          Show this message.
  */
 
@@ -375,6 +384,26 @@ function seedRegistryFromFolio(FolioClient $client, ReferenceRegistry $registry,
     ));
     $errorLog->write('');
     fwrite(STDERR, sprintf("Seeded %d existing note type(s) from FOLIO.\n", count($noteTypeNames)));
+}
+
+/**
+ * Append one line per record to the run's --uuid-log: the record
+ * type, its id, and a short human-readable label (built from
+ * $labelField, or "$field1 $field2" for $labelField = ['field1', 'field2'],
+ * e.g. a contact's firstName + lastName). Records with no `id` (there
+ * are none among the types this is called for, but kept defensive)
+ * are skipped.
+ */
+function logUuids(ErrorLog $uuidLog, string $recordType, array $records, string|array $labelField): void {
+    foreach ($records as $record) {
+        if (empty($record['id'])) {
+            continue;
+        }
+        $label = is_array($labelField)
+            ? trim(implode(' ', array_map(static fn($field) => (string) ($record[$field] ?? ''), $labelField)))
+            : (string) ($record[$labelField] ?? '');
+        $uuidLog->write(sprintf("%s\t%s\t%s", $recordType, $record['id'], $label));
+    }
 }
 
 /**
@@ -871,6 +900,9 @@ function main(array $argv): int {
     $errorLogPath = isset($options['error-log']) && $options['error-log'] !== true
         ? (string) $options['error-log']
         : ErrorLog::defaultPathFor($inputPath, PROJECT_ROOT . '/logs');
+    $uuidLogPath = isset($options['uuid-log']) && $options['uuid-log'] !== true
+        ? (string) $options['uuid-log']
+        : ErrorLog::defaultPathFor($inputPath, $outputDir, 'uuids');
     $folioConfigPath = isset($options['folio-config']) && $options['folio-config'] !== true
         ? (string) $options['folio-config']
         : null;
@@ -955,12 +987,35 @@ function main(array $argv): int {
         : sprintf("Times in this log are in this server's default timezone: %s.", date_default_timezone_get()));
     $errorLog->write('');
 
+    // A separate, tab-delimited log of every new record's type/id/label —
+    // deliberately its own file (in the same directory as the other
+    // output, alongside organizations.json etc.) rather than another
+    // section of --error-log, since it's meant to be skimmed or grepped
+    // on its own, not read alongside validation noise. Off by default —
+    // --log-uuids turns it on. $uuidLog is still instantiated either way
+    // so every ->close() call below stays safe (a never-opened ErrorLog
+    // no-ops on close); only ->open()/->write() are gated.
+    $logUuidsEnabled = isset($options['log-uuids']);
+    $uuidLog = new ErrorLog($uuidLogPath);
+    if ($logUuidsEnabled) {
+        try {
+            $uuidLog->open();
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+            $errorLog->close();
+            $uuidLog->close();
+            return 1;
+        }
+        $uuidLog->write("type\tid\tlabel");
+    }
+
     if ($folioClient !== null) {
         try {
             seedRegistryFromFolio($folioClient, $registry, $errorLog);
         } catch (\Throwable $e) {
             fwrite(STDERR, 'Error: could not fetch existing reference data from FOLIO: ' . $e->getMessage() . "\n");
             $errorLog->close();
+            $uuidLog->close();
             return 1;
         }
     }
@@ -975,6 +1030,7 @@ function main(array $argv): int {
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     $hadErrors = $hadErrors || $orgResult->hadErrors();
@@ -1015,6 +1071,7 @@ function main(array $argv): int {
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     $hadErrors = $hadErrors || $contactsHadErrors;
@@ -1022,6 +1079,7 @@ function main(array $argv): int {
     if (!writeRecords($contactRecords, $contactsOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$contactsOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d contact(s).\n", count($contactRecords)));
@@ -1040,6 +1098,7 @@ function main(array $argv): int {
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     $hadErrors = $hadErrors || $interfacesHadErrors;
@@ -1047,6 +1106,7 @@ function main(array $argv): int {
     if (!writeRecords($interfaceRecords, $interfacesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$interfacesOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d interface(s).\n", count($interfaceRecords)));
@@ -1055,6 +1115,7 @@ function main(array $argv): int {
     if (!writeRecords($credentialRecords, $credentialsOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$credentialsOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d interface credential(s).\n", count($credentialRecords)));
@@ -1092,6 +1153,7 @@ function main(array $argv): int {
     if (!writeRecords($orgRecords, $outputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$outputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d organization(s).\n", count($orgRecords)));
@@ -1105,6 +1167,7 @@ function main(array $argv): int {
     } catch (\RuntimeException $e) {
         fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     $hadErrors = $hadErrors || $notesHadErrors;
@@ -1112,6 +1175,7 @@ function main(array $argv): int {
     if (!writeRecords($noteRecords, $notesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$notesOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d note(s).\n", count($noteRecords)));
@@ -1125,6 +1189,7 @@ function main(array $argv): int {
     if (!writeRecords($categories, $categoriesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$categoriesOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d categor%s.\n", count($categories), count($categories) === 1 ? 'y' : 'ies'));
@@ -1138,6 +1203,7 @@ function main(array $argv): int {
     if (!writeRecords($organizationTypes, $organizationTypesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$organizationTypesOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d organization type(s).\n", count($organizationTypes)));
@@ -1149,6 +1215,7 @@ function main(array $argv): int {
     if (!writeRecords($noteTypes, $noteTypesOutputPath, $format)) {
         fwrite(STDERR, "Error: cannot write to output file '$noteTypesOutputPath'\n");
         $errorLog->close();
+        $uuidLog->close();
         return 1;
     }
     fwrite(STDERR, sprintf("Built %d note type(s).\n", count($noteTypes)));
@@ -1157,6 +1224,20 @@ function main(array $argv): int {
     // a note (see buildNotes() — a row whose organization was rejected
     // never gets this far, so it can't have kept one alive either).
     logOrphanReferenceNotes($errorLog, $registry, 'noteType', 'name', $noteTypes, $noteTypesOutputPath, $noteRowNumbers, $format);
+
+    // notes.json is deliberately excluded: FOLIO assigns its id at load
+    // time (see buildNotes()), so there's no client-generated uuid here
+    // worth logging.
+    if ($logUuidsEnabled) {
+        logUuids($uuidLog, 'organizations', $orgRecords, 'name');
+        logUuids($uuidLog, 'contacts', $contactRecords, ['firstName', 'lastName']);
+        logUuids($uuidLog, 'interfaces', $interfaceRecords, 'name');
+        logUuids($uuidLog, 'credentials', $credentialRecords, 'username');
+        logUuids($uuidLog, 'categories', $categories, 'value');
+        logUuids($uuidLog, 'organizationTypes', $organizationTypes, 'name');
+        logUuids($uuidLog, 'noteTypes', $noteTypes, 'name');
+        fwrite(STDERR, "UUID log written to: $uuidLogPath\n");
+    }
 
     $errorLog->write(sprintf(
         'Run complete: %d organization(s), %d contact(s), %d interface(s), %d credential(s), %d note(s), %d categor%s, %d organization type(s), %d note type(s).',
@@ -1167,6 +1248,7 @@ function main(array $argv): int {
     $errorLog->write(sprintf('Run ended %s', date('c')));
     $errorLog->write(sprintf('Elapsed time: %.2f seconds', $endTime - $startTime));
     $errorLog->close();
+    $uuidLog->close();
 
     if ($hadErrors) {
         fwrite(STDERR, "Some rows were skipped due to validation errors — see: $errorLogPath\n");
